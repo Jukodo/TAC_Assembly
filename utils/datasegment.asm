@@ -10,14 +10,14 @@
 dseg	segment para public 'data'
 
 	;Create file
-	fname	db	'pergunta.txt',0
-	fhandle dw	0
-	buffer	db	'1 5 6 7 8 9 1 5 7 8 9 2 3 7 8 15 16 18 19 20 3',13,10
-			db 	'+ - / * * + - - + * / * + - - + * / + - - + * ',13,10
-			db	'10 12 14 7 9 11 13 5 10 15 7 8 9 10 13 5 10 11',13,10 
-			db 	'/ * + - - + * / + - / * * + - - + * * + - - + ',13,10
-			db	'3 45 23 11 4 7 14 18 31 27 19 9 6 47 19 9 6 51',13,10
-			db	'______________________________________________',13,10
+	fname			db	'pergunta.txt',0
+	fhandle 		dw	0
+	buffer			db	'1 5 6 7 8 9 1 5 7 8 9 2 3 7 8 15 16 18 19 20 3',13,10
+					db 	'+ - / * * + - - + * / * + - - + * / + - - + * ',13,10
+					db	'10 12 14 7 9 11 13 5 10 15 7 8 9 10 13 5 10 11',13,10 
+					db 	'/ * + - - + * / + - / * * + - - + * * + - - + ',13,10
+					db	'3 45 23 11 4 7 14 18 31 27 19 9 6 47 19 9 6 51',13,10
+					db	'______________________________________________',13,10
 	msgErrorCreate	db	"Ocorreu um erro na criacao do ficheiro!$"
 	msgErrorWrite	db	"Ocorreu um erro na escrita para ficheiro!$"
 	msgErrorClose	db	"Ocorreu um erro no fecho do ficheiro!$"
