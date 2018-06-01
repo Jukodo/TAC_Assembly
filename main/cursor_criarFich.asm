@@ -3,22 +3,36 @@
 .stack 2048
 
 dseg	segment para public 'data'
-		string	db	"Teste prático de T.I",0
-		Car		db	32	; Guarda um caracter do Ecran 
-		Cor		db	7	; Guarda os atributos de cor do caracter
-		Car2		db	32	; Guarda um caracter do Ecran 
-		Cor2		db	7	; Guarda os atributos de cor do caracter
-		POSy		db	5	; a linha pode ir de [1 .. 25]
-		POSx		db	10	; POSx pode ir [1..80]	
-		POSya		db	5	; Posição anterior de y
-		POSxa		db	10	; Posição anterior de x
+	;|||||||||||||||||||| (start) Cursor |||||||||||||||||||| 
+	string	db	"Teste prático de T.I",0
+	Car		db	32	; Guarda um caracter do Ecran 
+	Cor		db	7	; Guarda os atributos de cor do caracter
+	Car2		db	32	; Guarda um caracter do Ecran 
+	Cor2		db	7	; Guarda os atributos de cor do caracter
+	POSy		db	5	; a linha pode ir de [1 .. 25]
+	POSx		db	10	; POSx pode ir [1..80]	
+	POSya		db	5	; Posição anterior de y
+	POSxa		db	10	; Posição anterior de x
+	;|||||||||||||||||||| (end) Cursor |||||||||||||||||||| 
+	;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
+	fname	db	'pergunta.txt',0
+	fhandle dw	0
+	buffer	db	'1 5 6 7 8 9 1 5 7 8 9 2 3 7 8 15 16 18 19 20 3',13,10
+			db 	'+ - / * * + - - + * / * + - - + * / + - - + * ',13,10
+			db	'10 12 14 7 9 11 13 5 10 15 7 8 9 10 13 5 10 11',13,10 
+			db 	'/ * + - - + * / + - / * * + - - + * * + - - + ',13,10
+			db	'3 45 23 11 4 7 14 18 31 27 19 9 6 47 19 9 6 51',13,10
+			db	'______________________________________________',13,10
+	msgErrorCreate	db	"Ocorreu um erro na criacao do ficheiro!$"
+	msgErrorWrite	db	"Ocorreu um erro na escrita para ficheiro!$"
+	msgErrorClose	db	"Ocorreu um erro no fecho do ficheiro!$"
+	;|||||||||||||||||||| (end) CriarFich |||||||||||||||||||| 
 dseg	ends
 
 cseg	segment para public 'code'
 assume		cs:cseg, ds:dseg
 
-
-
+;|||||||||||||||||||| (start) Cursor |||||||||||||||||||| 
 ;########################################################################
 goto_xy	macro		POSx,POSy
 		mov		ah,02h
@@ -35,7 +49,8 @@ apaga_ecran	proc
 		xor		bx,bx
 		mov		cx,25*80
 		
-apaga:			mov	byte ptr es:[bx],' '
+apaga:			
+		mov	byte ptr es:[bx],' '
 		mov		byte ptr es:[bx+1],7
 		inc		bx
 		inc 		bx
@@ -61,12 +76,17 @@ SAI_TECLA:	RET
 LE_TECLA	endp
 ;########################################################################
 
-Main  proc
+func_moveCursor  proc
+		;;PROG STARTS HERE
 		mov		ax, dseg
 		mov		ds,ax
+		;;||||||||||||||||
+		
 		mov		ax,0B800h
 		mov		es,ax
 	
+		call apaga_ecran
+		
 		goto_xy		POSx,POSy	; Vai para nova possição
 		mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
 		mov		bh,0		; numero da página
@@ -176,9 +196,55 @@ DIREITA:
 		
 		jmp		CICLO
 
-fim:	
+fim:
+		call func_makeFile
+		call apaga_ecran
 		mov		ah,4CH
 		INT		21H
-Main	endp
+func_moveCursor	endp
+;|||||||||||||||||||| (end) Cursor |||||||||||||||||||| 
+;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
+func_makeFile proc
+		;MOV		AX, DADOS
+		;MOV		DS, AX
+	
+		mov		ah, 3ch				; Abrir o ficheiro para escrita
+		mov		cx, 00H				; Define o tipo de ficheiro ??
+		lea		dx, fname			; DX aponta para o nome do ficheiro 
+		int		21h					; Abre efectivamente o ficheiro (AX fica com o Handle do ficheiro)
+		jnc		escreve				; Se não existir erro escreve no ficheiro
+	
+		mov		ah, 09h
+		lea		dx, msgErrorCreate
+		int		21h
+	
+		jmp		return_MF
+
+escreve:
+		mov		bx, ax				; Coloca em BX o Handle
+    	mov		ah, 40h				; indica que é para escrever
+    	
+		lea		dx, buffer			; DX aponta para a infromação a escrever
+    	mov		cx, 240				; CX fica com o numero de bytes a escrever
+		int		21h					; Chama a rotina de escrita
+		jnc		close				; Se não existir erro na escrita fecha o ficheiro
+	
+		mov		ah, 09h
+		lea		dx, msgErrorWrite
+		int		21h
+close:
+		mov		ah,3eh				; fecha o ficheiro
+		int		21h
+		jnc		return_MF
+	
+		mov		ah, 09h
+		lea		dx, msgErrorClose
+		int		21h
+return_MF:
+		RET
+		;MOV		AH,4CH
+		;INT		21H
+func_makeFile	endp
+;|||||||||||||||||||| (end) CriarFich ||||||||||||||||||||
 Cseg	ends
-end	Main
+end	func_moveCursor
