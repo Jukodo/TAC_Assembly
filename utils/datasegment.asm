@@ -23,8 +23,8 @@ dseg	segment para public 'data'
 	msgErrorClose	db	"Ocorreu um erro no fecho do ficheiro!$"
 	
 	;Read file
-	POSy			db	4	; a linha pode ir de [ .. ]			REP
-	POSx			db	10	; POSx pode ir [ .. ]				REP
+	file_POSy			db	4	; a linha pode ir de [ .. ]			Original: POSy
+	file_POSx			db	10	; POSx pode ir [ .. ]				Original: POSx
     Erro_Open       db      'Erro ao tentar abrir o ficheiro$'	
     Erro_Ler_Msg    db      'Erro ao tentar ler do ficheiro$'
     Erro_Close      db      'Erro ao tentar fechar o ficheiro$'
@@ -33,15 +33,15 @@ dseg	segment para public 'data'
     car_fich        db      ?
 	
 	;Cursor
-	string	db	"Teste prático de T.I",0
-	Car		db	32	; Guarda um caracter do Ecran				REP
-	Cor		db	7	; Guarda os atributos de cor do caracter	REP
-	Car2	db	32	; Guarda um caracter do Ecran 
-	Cor2	db	7	; Guarda os atributos de cor do caracter
-	POSy	db	5	; a linha pode ir de [1 .. 25]				REP
-	POSx	db	10	; POSx pode ir [1..80]						REP
-	POSya	db	5	; Posição anterior de y
-	POSxa	db	10	; Posição anterior de x
+	string	db	"Teste prático de T.I",0								;Wont need dis shit
+	cursor_Car		db	32	; Guarda um caracter do Ecran				Original: Car
+	cursor_Cor		db	7	; Guarda os atributos de cor do caracter	Original: Cor
+	cursor_Car2	db	32	; Guarda um caracter do Ecran 					Original: Car2
+	cursor_Cor2	db	7	; Guarda os atributos de cor do caracter		Original: Cor2
+	cursor_POSy	db	5	; a linha pode ir de [1 .. 25]					Original: POSy
+	cursor_POSx	db	10	; POSx pode ir [1..80]							Original: POSx
+	cursor_POSya	db	5	; Posição anterior de y						Original: POSya
+	cursor_POSxa	db	10	; Posição anterior de x						Original: POSxa
 	
 	;HMS_DMA
 	STR12	 	db 		"            "				; String para 12 digitos	
@@ -52,8 +52,8 @@ dseg	segment para public 'data'
 	Minutos		dw		0							; Vai guardar os minutos actuais
 	Segundos	dw		0							; Vai guardar os segundos actuais
 	Old_seg		dw		0							; Guarda os últimos segundos que foram lidos
-	POSy		db		10							; a linha pode ir de [1 .. 25]										REP
-	POSx		db		40							; POSx pode ir [1..80]												REP
+	time_POSy		db		10							; a linha pode ir de [1 .. 25]										Original:	POSy
+	time_POSx		db		40							; POSx pode ir [1..80]												Original: POSx
 	NUMDIG		db		0							; controla o numero de digitos do numero lido
 	MAXDIG		db		4							; Constante que define o numero MAXIMO de digitos a ser aceite
 	
@@ -62,8 +62,8 @@ dseg	segment para public 'data'
 	str_num 			db 5 dup(?),'$'
     linha				db	0	; Define o número da linha que está a ser desenhada
     nlinhas				db	0
-	cor					db 	0																							;REP
-	car					db	' '																							;REP
+	tab_cor					db 	0																							;Original: cor
+	tab_car					db	' '																							;Original: car
 	
 	
 dseg	ends
