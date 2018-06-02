@@ -9,10 +9,10 @@ dseg	segment para public 'data'
 	Cor		db	7	; Guarda os atributos de cor do caracter
 	Car2		db	32	; Guarda um caracter do Ecran 
 	Cor2		db	7	; Guarda os atributos de cor do caracter
-	POSy		db	5	; a linha pode ir de [1 .. 25]
-	POSx		db	10	; POSx pode ir [1..80]	
-	POSya		db	5	; Posição anterior de y
-	POSxa		db	10	; Posição anterior de x
+	POSy		db	9	; a linha pode ir de [1 .. 25] (val: posição inicial)
+	POSx		db	31	; POSx pode ir [1..80] (val: posição inicial)
+	POSya		db	9	; Posição anterior de y
+	POSxa		db	31	; Posição anterior de x
 	;|||||||||||||||||||| (end) Cursor |||||||||||||||||||| 
 	;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
 	fname	db	'pergunta.txt',0
@@ -179,17 +179,27 @@ LER_SETA:	call 		LE_TECLA
 		
 ESTEND:		cmp 		al,48h
 		jne		BAIXO
+		;if (POSy <= 9){ break; }
+			cmp 	POSy, 9
+			jle 		CICLO
+		
 		dec		POSy		;cima
 		jmp		CICLO
 
 BAIXO:		cmp		al,50h
 		jne		ESQUERDA
-		inc 		POSy		;Baixo
+		;if (POSy >= 14){ break; }
+			cmp 	POSy, 14
+			jge 		CICLO
+		inc 	POSy		;Baixo
 		jmp		CICLO
 
 ESQUERDA:
 		cmp		al,4Bh
 		jne		DIREITA
+		;if (POSx <= 31){ break; }
+			cmp 	POSx, 31
+			jle 		CICLO
 		dec		POSx		;Esquerda
 		dec		POSx		;Esquerda
 
@@ -198,6 +208,9 @@ ESQUERDA:
 DIREITA:
 		cmp		al,4Dh
 		jne		LER_SETA 
+		;if (POSx >= 48){ break; }
+			cmp 	POSx, 48
+			jge 		CICLO
 		inc		POSx		;Direita
 		inc		POSx		;Direita
 		
