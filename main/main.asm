@@ -118,34 +118,34 @@ func_hasPlays proc
 	has_plays:
 		ret
 	no_plays:
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
-		call delay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
+		call func_makeDelay
 		call func_drawTabuleiro
 		jmp start
 		ret
@@ -232,7 +232,7 @@ endm
 ;########################################################################
 ;ROTINA PARA APAGAR ECRAN
 
-apaga_ecran	proc
+func_limpaEcran	proc
 		xor		bx,bx
 		mov		cx,25*80
 		
@@ -243,13 +243,13 @@ apaga:
 		inc 		bx
 		loop		apaga
 		ret
-apaga_ecran	endp
+func_limpaEcran	endp
 
 
 ;########################################################################
 ; LE UMA TECLA	
 
-LE_TECLA	PROC
+func_leTecla	PROC
 
 		mov		ah,08h
 		int		21h
@@ -260,7 +260,7 @@ LE_TECLA	PROC
 		int		21h
 		mov		ah,1
 SAI_TECLA:	RET
-LE_TECLA	endp
+func_leTecla	endp
 ;########################################################################
 
 func_moveCursor  proc
@@ -272,7 +272,7 @@ func_moveCursor  proc
 		mov		ax,0B800h
 		mov		es,ax
 	
-		call apaga_ecran
+		call func_limpaEcran
 		call func_readFile
 		call func_drawTabuleiro
 		call func_hasPlays
@@ -353,7 +353,7 @@ IMPRIME:	mov		ah, 02h
 		mov		al, POSy	; Guarda a posição do cursor
 		mov 		POSya, al
 		
-LER_SETA:	call 		LE_TECLA
+LER_SETA:	call 		func_leTecla
 		cmp		ah, 1
 		je		ESTEND
 		cmp 		al, 27	; ESCAPE
@@ -403,7 +403,7 @@ DIREITA:
 
 fim:
 		call func_makeFile
-		call apaga_ecran
+		call func_limpaEcran
 		mov		ah,4CH
 		INT		21H
 func_moveCursor	endp
@@ -452,7 +452,7 @@ return_MF:
 func_makeFile	endp
 ;|||||||||||||||||||| (end) CriarFich ||||||||||||||||||||
 ;|||||||||||||||||||| (start) LerFich |||||||||||||||||||| 
-Imp_fname_ler	PROC
+func_printTextFile	PROC
 
 ;abre ficheiro
 
@@ -499,15 +499,15 @@ fecha_ficheiro:					; vamos fechar o ficheiro
         lea     dx,msgErrorClose
         Int     21h
 sai:	  RET
-Imp_fname_ler	endp
+func_printTextFile	endp
 
 
 ;########################################################################
 
 func_readFile  proc
-	call	apaga_ecran
+	call	func_limpaEcran
 	goto_xy	1,1
-	call	Imp_fname_ler
+	call	func_printTextFile
 
 		goto_xy	2,22
 		;mov	ah,4CH
@@ -526,14 +526,14 @@ func_drawTabuleiro PROC
 
 	mov	cx,10		; Faz o ciclo 10 vezes
 ciclo4:
-		call	CalcAleat
+		call	func_getRandom
 		pop	ax 		; vai bustab_car 'a pilha o número aleatório
 
 		mov	dl,cl	
 		mov	dh,70
-		push	dx		; Passagem de parâmetros a impnum (posição do ecran)
-		push	ax		; Passagem de parâmetros a impnum (número a imprimir)
-		call	impnum		; imprime 10 aleatórios na parte direita do ecran
+		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		call	func_printNum		; imprime 10 aleatórios na parte direita do ecran
 		loop	ciclo4		; Ciclo de impressão dos números aleatórios
 		
 		mov   	ax, 0b800h	; Segmento de memória de vídeo onde vai ser desenhado o tabuleiro
@@ -553,7 +553,7 @@ ciclo1:
 		mov	es:[bx],dh	;
 	
 novatab_cor:	
-		call	CalcAleat	; Calcula próximo aleatório que é colocado na pinha 
+		call	func_getRandom	; Calcula próximo aleatório que é colocado na pinha 
 		pop	ax ; 		; Vai bustab_car 'a pilha o número aleatório
 		and 	al,01110000b	; posição do ecran com tab_cor de fundo aleatório e tab_caracter a preto
 		cmp	al, 0		; Se o fundo de ecran é preto
@@ -571,8 +571,8 @@ novatab_cor:
 		inc	bx
 		inc	bx
 		
-		mov	di,1 ;delay de 1 centesimo de segundo
-		;;call	delay
+		mov	di,1 ;func_makeDelay de 1 centesimo de segundo
+		;;call	func_makeDelay
 		loop	ciclo1		; continua até fazer as 9 colunas que tab_correspondem a uma liha completa
 		
 		inc	linha		; Vai desenhar a próxima linha
@@ -589,7 +589,7 @@ return_PROC:
 func_drawTabuleiro ENDP
 
 ;------------------------------------------------------
-;CalcAleat - calcula um numero aleatorio de 16 bits
+;func_getRandom - calcula um numero aleatorio de 16 bits
 ;Parametros passados pela pilha
 ;entrada:
 ;não tem parametros de entrada
@@ -598,7 +598,7 @@ func_drawTabuleiro ENDP
 ;notas adicionais:
 ; deve estar definida uma variavel => ultimo_num_aleat dw 0
 ; assume-se que DS esta a apontar para o segmento onde esta armazenada ultimo_num_aleat
-CalcAleat proc near
+func_getRandom proc near
 
 	sub	sp,2		; 
 	push	bp
@@ -631,10 +631,10 @@ CalcAleat proc near
 	pop	ax
 	pop	bp
 	ret
-CalcAleat endp
+func_getRandom endp
 
 ;------------------------------------------------------
-;impnum - imprime um numero de 16 bits na posicao x,y
+;func_printNum - imprime um numero de 16 bits na posicao x,y
 ;Parametros passados pela pilha
 ;entrada:
 ;param1 -  8 bits - posicao x
@@ -646,7 +646,7 @@ CalcAleat endp
 ; deve estar definida uma variavel => str_num db 5 dup(?),'$'
 ; assume-se que DS esta a apontar para o segmento onde esta armazenada str_num
 ; sao eliminados da pilha os parametros de entrada
-impnum proc near
+func_printNum proc near
 	push	bp
 	mov	bp,sp
 	push	ax
@@ -681,7 +681,7 @@ prox_dig:
 	pop	ax
 	pop	bp
 	ret	4 ;limpa parametros (4 bytes) colocados na pilha
-impnum endp
+func_printNum endp
 
 
 
@@ -689,7 +689,7 @@ impnum endp
 
 
 ;recebe em di o número de milisegundos a esperar
-delay proc
+func_makeDelay proc
 	pushf
 	push	ax
 	push	cx
@@ -726,7 +726,7 @@ naoajusta:
 	pop	ax
 	popf
 	ret
-delay endp
+func_makeDelay endp
 ;|||||||||||||||||||| (end) Tabuleiro |||||||||||||||||||| 
 Cseg	ends
 end	func_moveCursor
