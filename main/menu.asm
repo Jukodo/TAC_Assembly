@@ -28,10 +28,10 @@ DSEG    SEGMENT PARA PUBLIC 'DATA'
 		menu_POSya		db 	0
 		menu_POSxa		db 	0
 		
-		menu_Car		db	32
-		menu_Cor		db	7
-		menu_Car2		db	32
-		menu_Cor2		db 	7
+		menu_Car		db	0
+		menu_Cor		db	0
+		menu_Car2		db	0
+		menu_Cor2		db 	0
 		
 		
 		str_opt1		db 	"1 $"
@@ -86,24 +86,90 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 	func_leTecla	endp
 	
 	
+	;Params: AL
+	;swtich(AL)
+	;	case 1:
+	;	case 2:
+	;	case 3:
+	;	case 4:
+	
+	menu_switch_opt proc
+	
+		pop ax
+		cmp al, 1
+		jne opt2
+		
+		opt1:
+			;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+			;mov		ah, 02h		; IMPRIME caracter da posição no canto
+			;mov		dl, '1'
+			;int		21H	
+			call func_selectOpt
+		
+		opt2:
+			cmp al, 2
+			jne opt3
+			;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+			;mov		ah, 02h		; IMPRIME caracter da posição no canto
+			;mov		dl, '2'
+			;int		21H
+			call func_selectOpt
+		
+		opt3:
+			cmp al, 3
+			jne opt3
+			;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+			;mov		ah, 02h		; IMPRIME caracter da posição no canto
+			;mov		dl, '3'
+			;int		21H	
+			call func_selectOpt
+		
+		opt4:
+			cmp al, 4
+			;jne func_selectOpt
+			;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+			;mov		ah, 02h		; IMPRIME caracter da posição no canto
+			;mov		dl, '4'
+			;int		21H	
+			call func_selectOpt
+	
+		fim_menu_switch_opt:
+			ret
+	
+	menu_switch_opt endp
+	
+	
 	func_selectOpt proc
 	
+		mov al, 1
+		push ax
+	
 		goto_xy		menu_POSx,menu_POSy	; Vai para nova possição
-		mov			bh,0		; numero da página
-		int			10h			
+		;mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
+		;mov			bh,0		; numero da página
+		;int			10h	
+		;mov		menu_Car, al	; Guarda o Caracter que está na posição do Cursor
+		;mov		menu_Cor, ah	; Guarda a cor que está na posição do Cursor	
+
+		
 		inc			menu_POSx
 		goto_xy		menu_POSx,menu_POSy	; Vai para nova possição2
-		mov			bh,0		; numero da página
-		int			10h			
+		;mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
+		;mov			bh,0		; numero da página
+		;int			10h
+		;mov		menu_Car2, al	; Guarda o Caracter que está na posição do Cursor
+		;mov		menu_Cor2, ah	; Guarda a cor que está na posição do Cursor
 		dec			menu_POSx
 	
 
 	menu_Ciclo:		
 	
+		dec menu_POSxa
 		goto_xy	menu_POSxa,menu_POSya	; Vai para a posição anterior do cursor
 		mov		ah, 02h
 		mov		dl, menu_Car	; Repoe menu_Caracter guardado 
 		int		21H	
+		inc menu_POSxa
 
 		inc		menu_POSxa
 		goto_xy		menu_POSxa,menu_POSya	
@@ -115,24 +181,41 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 		goto_xy	menu_POSx,menu_POSy	; Vai para nova possição
 		mov 		ah, 08h
 		mov		bh,0		; numero da página
-		int		10h		
-		mov		menu_Car, al	; Guarda o menu_Caracter que está na posição do Cursor
-		mov		menu_Cor, ah	; Guarda a menu_Cor que está na posição do Cursor
+		;int		10h
+		mov		menu_Car, al	; Guarda o Caracter que está na posição do Cursor
+		mov		menu_Cor, ah	; Guarda a cor que está na posição do Cursor		
 		
 		inc		menu_POSx
 		goto_xy		menu_POSx,menu_POSy	; Vai para nova possição
 		mov 		ah, 08h
 		mov		bh,0		; numero da página
-		int		10h		
-		mov		menu_Car2, al	; Guarda o menu_Caracter2 que está na posição do Cursor2
-		mov		menu_Cor2, ah	; Guarda a menu_Cor que está na posição do Cursor2
+		;int		10h
+		mov		menu_Car2, al	; Guarda o Caracter2 que está na posição do Cursor2
+		mov		menu_Cor2, ah	; Guarda a cor que está na posição do Cursor2		
 		dec		menu_POSx
+		
+		;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+		;mov		ah, 02h		; IMPRIME caracter da posição no canto
+		;mov		dl, menu_Car	
+		;int		21H
+
+		;goto_xy		78,0		; Mostra o caractr2 que estava na posição do AVATAR
+		;mov		ah, 02h		; IMPRIME caracter2 da posição no canto
+		;mov		dl, menu_Car2	
+		;int		21H		
 			
 		
 	
 		goto_xy		menu_POSx,menu_POSy	; Vai para posição do cursor
 		
-		menu_imprime:	
+		menu_imprime:
+				
+				dec menu_POSx
+				goto_xy		menu_POSx,menu_POSy
+				mov		ah, 02h
+				mov		dl, '('	; Coloca AVATAR1
+				int		21H
+				inc menu_POSx
 		
 				inc		menu_POSx
 				goto_xy		menu_POSx,menu_POSy		
@@ -154,6 +237,8 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 				je		menu_Estend
 				cmp 		al, 27	; ESCAPE
 				je		fim_selectedOpt
+				cmp 	al, 13	; ENTER
+				je		menu_switch_opt
 				jmp		menu_LerSeta
 				
 		menu_Estend:		
@@ -162,6 +247,9 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 				;if (menu_POSy <= 1){ break; }
 				cmp 	menu_POSy, 1
 				jle 	menu_Ciclo
+				pop ax
+				dec al
+				;push ax
 				dec		menu_POSy		;cima
 				jmp		menu_Ciclo
 
@@ -171,6 +259,9 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 				;if (menu_POSy >= 4){ break; }
 				cmp 	menu_POSy, 4
 				jge 	menu_Ciclo
+				pop ax
+				inc al
+				;push ax
 				inc 	menu_POSy		;Baixo
 				jmp		menu_Ciclo
 
