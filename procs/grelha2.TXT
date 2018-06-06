@@ -1,0 +1,2 @@
+0ppP@ `p`0P`0p0p`@P `@`0PP @P00@ 0 PpP0pP@00`0 
+Ocorreu um erro na criacao do ficheiro!$Ocorreu um erro na escrita para ficheiro!$Ocorreu um erro no fecho do ficheiro!$Erro ao tentar abrir o ficheiro$Erro ao tentar ler do ficheiro$g
