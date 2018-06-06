@@ -25,8 +25,8 @@ DSEG    SEGMENT PARA PUBLIC 'DATA'
 		
 		menu_POSy		db 	1
 		menu_POSx		db 	1
-		menu_POSya		db 	0
-		menu_POSxa		db 	0
+		menu_POSya		db 	1
+		menu_POSxa		db 	1
 		
 		menu_Car		db	0
 		menu_Cor		db	0
@@ -43,9 +43,6 @@ DSEG    SEGMENT PARA PUBLIC 'DATA'
 		str_pontuacoes 	db 	" Ver pontuacoes$"
 		str_grelha 		db 	" Configurar grelha$"
 		str_sair		db 	" Sair$"
-		
-		left_select		db "($"
-		right_select	db ")$"
 		
 		selected_opt	db	1 ;Inicialmente a opção 1 está selecionada
 
@@ -86,65 +83,54 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 	func_leTecla	endp
 	
 	
-	;Params: AL
+	;Params: selected_opt
 	;swtich(AL)
 	;	case 1:
 	;	case 2:
 	;	case 3:
-	;	case 4:
+	;	default:
 	
 	menu_switch_opt proc
 	
-		pop ax
+		mov al, selected_opt
 		cmp al, 1
 		jne opt2
 		
 		opt1:
-			;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-			;mov		ah, 02h		; IMPRIME caracter da posição no canto
-			;mov		dl, '1'
-			;int		21H	
+			goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+			mov		ah, 02h		; IMPRIME caracter da posição no canto
+			mov		dl, '1'
+			int		21H	
 			call func_selectOpt
 		
 		opt2:
 			cmp al, 2
 			jne opt3
-			;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-			;mov		ah, 02h		; IMPRIME caracter da posição no canto
-			;mov		dl, '2'
-			;int		21H
+			goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+			mov		ah, 02h		; IMPRIME caracter da posição no canto
+			mov		dl, '2'
+			int		21H
 			call func_selectOpt
 		
 		opt3:
 			cmp al, 3
-			jne opt3
-			;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-			;mov		ah, 02h		; IMPRIME caracter da posição no canto
-			;mov		dl, '3'
-			;int		21H	
+			jne fim_menu_switch_opt
+			goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+			mov		ah, 02h		; IMPRIME caracter da posição no canto
+			mov		dl, '3'
+			int		21H	
 			call func_selectOpt
-		
-		opt4:
-			cmp al, 4
-			;jne func_selectOpt
-			;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-			;mov		ah, 02h		; IMPRIME caracter da posição no canto
-			;mov		dl, '4'
-			;int		21H	
-			call func_selectOpt
-	
+			
 		fim_menu_switch_opt:
-			ret
+			mov ah,4CH
+			int	21H
 	
 	menu_switch_opt endp
 	
 	
 	func_selectOpt proc
 	
-		mov al, 1
-		push ax
-	
-		goto_xy		menu_POSx,menu_POSy	; Vai para nova possição
+		;goto_xy		menu_POSx,menu_POSy	; Vai para nova possição
 		;mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
 		;mov			bh,0		; numero da página
 		;int			10h	
@@ -152,14 +138,14 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 		;mov		menu_Cor, ah	; Guarda a cor que está na posição do Cursor	
 
 		
-		inc			menu_POSx
-		goto_xy		menu_POSx,menu_POSy	; Vai para nova possição2
+		;inc			menu_POSx
+		;goto_xy		menu_POSx,menu_POSy	; Vai para nova possição2
 		;mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
 		;mov			bh,0		; numero da página
 		;int			10h
 		;mov		menu_Car2, al	; Guarda o Caracter que está na posição do Cursor
 		;mov		menu_Cor2, ah	; Guarda a cor que está na posição do Cursor
-		dec			menu_POSx
+		;dec			menu_POSx
 	
 
 	menu_Ciclo:		
@@ -247,9 +233,7 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 				;if (menu_POSy <= 1){ break; }
 				cmp 	menu_POSy, 1
 				jle 	menu_Ciclo
-				pop ax
-				dec al
-				;push ax
+				dec selected_opt
 				dec		menu_POSy		;cima
 				jmp		menu_Ciclo
 
@@ -259,9 +243,7 @@ CSEG    SEGMENT PARA PUBLIC 'CODE'
 				;if (menu_POSy >= 4){ break; }
 				cmp 	menu_POSy, 4
 				jge 	menu_Ciclo
-				pop ax
-				inc al
-				;push ax
+				inc selected_opt
 				inc 	menu_POSy		;Baixo
 				jmp		menu_Ciclo
 
