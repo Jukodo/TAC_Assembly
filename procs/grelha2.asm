@@ -17,13 +17,7 @@ dseg	segment para public 'data'
 	;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
 	fname	db	'grelha2.txt',0
 	fhandle dw	0
-	buffer db 54 dup (0)
-	buffer_str	db	'1 5 6 7 8 9 1 5 7 8 9 2 3 7 8 15 16 18 19 20 3',13,10
-			db 	'+ - / * * + - - + * / * + - - + * / + - - + * ',13,10
-			db	'10 12 14 7 9 11 13 5 10 15 7 8 9 10 13 5 10 11',13,10 
-			db 	'/ * + - - + * / + - / * * + - - + * * + - - + ',13,10
-			db	'3 45 23 11 4 7 14 18 31 27 19 9 6 47 19 9 6 51',13,10
-			;db	'______________________________________________',13,10
+	buffer	db 114 dup(0)
 			
 	str_cor	db	"     $"
 	lala		db	10
@@ -45,9 +39,13 @@ dseg	segment para public 'data'
 	tab_cor		db 	0
 	tab_car		db	' '	
 	
-	number_test Db 00080  ;◄■■ TEST NUMBER.
-	RESULT     DB 6 DUP('$') ;◄■■ VARIABLE FOR THE STRING ☻.
-	TMP1       DW ?
+	max_linhas		db 6
+	max_colunas 	db 9
+	
+	line_counter		db 0
+	column_counter 	db 0
+	
+	
 	;|||||||||||||||||||| (end) Tabuleiro |||||||||||||||||||| 
 dseg	ends
 
@@ -98,6 +96,130 @@ func_leTecla	PROC
 SAI_TECLA:	RET
 func_leTecla	endp
 ;########################################################################
+
+
+;----------------------------------------(start) func_colorsToBuffer ----------------------------------------
+;Params	: 	buffer, max_colunas, max_linhas
+;Func	:	Percorre todas as células da grelha e escreve, em formato de grelha(9x6), as cores no buffer para escrever no ficheiro
+
+;AL 	: 	Cor da célula
+;AH		: 	Cor da célula convertida ou \n. Argumento para escrever no buffer
+;BX 	:	Endereços da mem. video
+;CH 	: 	Contador de células percorridas
+;CH 	: 	Contador de linhas percorridas
+
+func_colorsToBuffer proc
+
+	xor ax, ax
+	xor bx, bx 
+	xor cx, cx
+	xor si, si
+
+	mov bx, 1340
+	
+	cycle:
+	
+		mov	al, es:[bx+1]
+		mov byte ptr es:[bx+2], '1'
+		call func_makeDelay
+
+		;swtich(ah):
+		;	case 00064: ah = 2 (red)
+		;	case 00080: ah = 3 (pink)
+		;	case 00048: ah = 4 (lblue)
+		;	case 00032: ah = 5 (green)
+		;	case 00096: ah = 6 (orange)
+		;	case 00112: ah = 7 (white)
+		;	default : (00016) ah = 8 (blue)
+			
+			
+		convert_color:
+		
+			cmp al, 00064  ; AL é red?
+			jne pink
+		
+			red:
+				mov ah, 2
+				jmp addTobuffer
+				
+			pink:
+				cmp al, 00080 
+				jne lblue
+				mov ah, 3
+				jmp addTobuffer
+				
+			lblue:
+				cmp al, 00048 
+				jne green
+				mov ah, 4
+				jmp addTobuffer
+			
+			green:
+				cmp al, 00032 
+				jne orange
+				mov ah, 5
+				jmp addTobuffer
+			
+			orange:
+				cmp al, 00096 
+				jne white
+				mov ah, 6
+				jmp addTobuffer
+			
+			white:
+				cmp al, 00112 
+				jne blue
+				mov ah, 7
+				jmp addTobuffer
+				
+			blue: ;00016
+				mov ah, 8
+				jmp addTobuffer
+			
+		
+		addTobuffer:;Adiciona uma cor e um espaço nas respetivas posicoes no buffer
+	
+			add ah, '0';Converte numero para string
+			MOV buffer[si], ah
+			
+			mov ah, 32; space
+			mov buffer[si+1], ah;Entre cada cor escreve um espaço
+			
+			add si, 2;Após escrever o espaço vai para próxima posição para escrever a próxima cor
+			
+			jmp next_cell
+		
+		
+
+		next_cell:;Le a celula seguinte
+		
+		add bx, 4 ;Anda para a celula da direita
+		inc ch; Nº de células percorridas
+		cmp ch, max_colunas
+		jge next_line; Se já leu o tamanho máximo de celulas que pode ler muda de linha
+		jmp cycle; Se não le a próxima celula
+		
+		next_line:;Salta para a 1ª celula de linha seguinte
+		
+		mov ah, 13; carriage return
+		mov buffer[si-2], ah; carriage return no fim da linha
+		mov ah, 10; new line
+		mov buffer[si-1], ah; entre cada linha vai haver um \n
+		
+		inc cl; Nº de linhas percorridas
+		cmp cl, max_linhas
+		jge fim; Se já leu o tamanho máximo de linhas que pode ler, termina
+		add bx, 160; Muda de linha, mas fica na ultima coluna
+		sub bx, 36; Vai para a 1ª coluna da nova linha
+		mov ch, 0; Renicia a contagem das células pois estamos numa nova linha
+		jmp cycle; Vai ler a próxima célula (1ª celula da linha nova)
+		
+		fim:
+			ret
+		
+func_colorsToBuffer endp
+
+;----------------------------------------(end) func_colorsToBuffer ----------------------------------------
 
 func_moveCursor  proc
 		;;PROG STARTS HERE
@@ -237,6 +359,7 @@ DIREITA:
 		jmp		CICLO
 
 fim:
+		call func_colorsToBuffer
 		call func_makeFile
 		call func_limpaEcran
 		mov		ah,4CH
@@ -264,8 +387,8 @@ escreve:
 		mov		bx, ax				; Coloca em BX o Handle
     	mov		ah, 40h				; indica que é para escrever
     	
-		lea		dx, buffer_str			; DX aponta para a infromação a escrever
-    	mov		cx, 240				; CX fica com o numero de bytes a escrever
+		lea		dx, buffer			; DX aponta para a infromação a escrever
+    	mov		cx, 116				; CX fica com o numero de bytes a escrever
 		int		21h					; Chama a rotina de escrita
 		jnc		close				; Se não existir erro na escrita fecha o ficheiro
 	
@@ -363,7 +486,7 @@ str2num proc
 	; si = 4, 3, 2, 1, 0
 	
 	mov bl, 10
-	;mov ax, 00112
+	mov ax, 112
 	mov si, 4
 
 
@@ -373,59 +496,95 @@ str2num proc
 		cmp al, 0
 		je fim
 		
-		mov str_cor[si], ah ; str_cor[si] = resto
+		add ah, '0'
+		mov buffer[si], ah ; str_cor[si] = resto
 		
-		;push ax
 		
-		;mov al, ah
+		dec si
+		
+		;mov dl, 20
+		;mov dh, 0
 		;mov ah, 0
+		;mov al, al
 		;push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
 		;push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
 		;call	func_printNum		; imprime POSy
 		
-		;pop ax
-		
-		dec si
-		
 	fim:
+		;xor ax, ax
+		;mov ah, 0046
+		;xor bx, bx
+		;mov bx, 10
+		;mov ah, str_cor
+		;mov	es:[bx+1],ah
 		
+		;mov buffer[0], ah
 		ret
 str2num endp 
 
 print_array proc
+
+	mov si, 0
+	mov bx, 50
+	mov ah, 0
 	
-	xor ax, ax
-	xor dx, dx
-	xor si, si
-	mov cx, 10
-	mov dl, 0
-	
+
 	ciclo:
-		
 		mov al, buffer[si]
-		call str2num
-		xor ax, ax
-		mov al, str_cor
-		mov buffer_str[si], al
-		
-		;xor ax, ax
-		;mov al, buffer[si]
-		;push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-		;push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-		;call	func_printNum		; imprime POSy
-		
 		inc si
-		inc dl
-		
-		loop ciclo
-		
-			
-	fim:
-		call str2num
+		mov es:[bx], al
+	next_column:
+		inc column_counter
+		mov ah, column_counter
+		cmp ah, max_colunas
+		je next_line
+		add bx, 2
+		jmp ciclo
+	next_line:
+		mov column_counter, 0
+		add bx, 160
+		sub bx, 16
+		inc line_counter
+		mov ah, line_counter
+		cmp ah, max_linhas
+		jne ciclo
+	
 		ret
 
-
 print_array endp
+
+write_array proc
+
+	mov si, 0
+	mov bx, 50
+	mov ah, 0
+	
+	ciclo:
+		xor ax, ax
+		call str2num
+		xor ax,ax
+		mov ah, str_cor
+		mov buffer[si], ah
+		inc si
+	next_column:
+		inc column_counter
+		mov ah, column_counter
+		cmp ah, max_colunas
+		je next_line
+		add bx, 2
+		jmp ciclo
+	next_line:
+		mov column_counter, 0
+		add bx, 160
+		sub bx, 16
+		inc line_counter
+		mov ah, line_counter
+		cmp ah, max_linhas
+		jne ciclo
+	
+		ret
+
+write_array endp
 
 
 func_drawTabuleiro PROC
@@ -475,28 +634,9 @@ novatab_cor:
 		mov	es:[bx],   dh
 		mov	es:[bx+1], al	; Coloca as tab_características de tab_cor da posição atual
 		push bx
-		
-			;mov dl, 20
-			;mov dh, 0
-			;mov ah, 0
-			;mov al, es:[bx+1]
-			;push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-			;push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-			;call	func_printNum		; imprime POSy
-			
-			set_buffer:
-			
-			;mov dl, 20
-			;mov dh, 0
-			;mov ah, 0
-			;push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-			;push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-			;call	func_printNum		; imprime POSy
-			;MOV	buffer_str[si], al
-			inc si
 
 		pop bx
-	
+		
 		inc	bx		
 		inc	bx		; próxima posição e ecran dois bytes à frente 
 
@@ -520,7 +660,9 @@ novatab_cor:
 return_PROC:
 
 			
-	;call print_array
+	call print_array
+	;call write_array
+	;call str2num
 	;pop dx
 	;cmp dl, 0
 	;call func_drawTabuleiro

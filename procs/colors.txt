@@ -1,7 +1,7 @@
-pink - 00080
-lblue - 00048
-green - 00032
-red -  00064
-orange - 00096
-white - 00112
-blue - 00016
+red -  00064 - 2
+pink - 00080 - 3
+lblue - 00048 - 4
+green - 00032 - 5
+orange - 00096 - 6
+white - 00112 - 7
+blue - 00016 - 8

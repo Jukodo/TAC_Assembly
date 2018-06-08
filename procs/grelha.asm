@@ -17,12 +17,7 @@ dseg	segment para public 'data'
 	;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
 	fname	db	'grelha.txt',0
 	fhandle dw	0
-	buffer	db	'1 5 6 7 8 9 1 5 7 8 9 2 3 7 8 15 16 18 19 20 3',13,10
-			db 	'+ - / * * + - - + * / * + - - + * / + - - + * ',13,10
-			db	'10 12 14 7 9 11 13 5 10 15 7 8 9 10 13 5 10 11',13,10 
-			db 	'/ * + - - + * / + - / * * + - - + * * + - - + ',13,10
-			db	'3 45 23 11 4 7 14 18 31 27 19 9 6 47 19 9 6 51',13,10
-			db	'______________________________________________',13,10
+	buffer	db 114 dup(0)
 	msgErrorCreate	db	"Ocorreu um erro na criacao do ficheiro!$"
 	msgErrorWrite	db	"Ocorreu um erro na escrita para ficheiro!$"
 	msgErrorClose	db	"Ocorreu um erro no fecho do ficheiro!$"
@@ -31,7 +26,7 @@ dseg	segment para public 'data'
 	msgErrorOpen       db      'Erro ao tentar abrir o ficheiro$'
 	msgErrorRead    db      'Erro ao tentar ler do ficheiro$'
 	fname_ler         	db      'grelha.TXT',0
-	cor_fich        db      ?
+	car_fich        db      ?
 	;|||||||||||||||||||| (end) LerFich |||||||||||||||||||| 
 	;|||||||||||||||||||| (start) Tabuleiro |||||||||||||||||||| 
 	ultimo_num_aleat dw 0
@@ -40,11 +35,16 @@ dseg	segment para public 'data'
 	nlinhas		db	0
 	tab_cor		db 	0
 	tab_car		db	' '	
+	
+	max_linhas		db 6
+	max_colunas 	db 9
+	
 	;|||||||||||||||||||| (end) Tabuleiro |||||||||||||||||||| 
 dseg	ends
 
 cseg	segment para public 'code'
 assume		cs:cseg, ds:dseg
+
 
 ;|||||||||||||||||||| (start) Cursor |||||||||||||||||||| 
 ;########################################################################
@@ -90,6 +90,130 @@ SAI_TECLA:	RET
 func_leTecla	endp
 ;########################################################################
 
+
+;----------------------------------------(start) func_colorsToBuffer ----------------------------------------
+;Params	: 	buffer, max_colunas, max_linhas
+;Func	:	Percorre todas as células da grelha e escreve, em formato de grelha(9x6), as cores no buffer para escrever no ficheiro
+
+;AL 	: 	Cor da célula
+;AH		: 	Cor da célula convertida ou \n. Argumento para escrever no buffer
+;BX 	:	Endereços da mem. video
+;CH 	: 	Contador de células percorridas
+;CH 	: 	Contador de linhas percorridas
+
+func_colorsToBuffer proc
+
+	xor ax, ax
+	xor bx, bx 
+	xor cx, cx
+	xor si, si
+
+	mov bx, 1340
+	
+	cycle:
+	
+		mov	al, es:[bx+1]
+		mov byte ptr es:[bx+2], '1'
+		call func_makeDelay
+
+		;swtich(ah):
+		;	case 00064: ah = 2 (red)
+		;	case 00080: ah = 3 (pink)
+		;	case 00048: ah = 4 (lblue)
+		;	case 00032: ah = 5 (green)
+		;	case 00096: ah = 6 (orange)
+		;	case 00112: ah = 7 (white)
+		;	default : (00016) ah = 8 (blue)
+			
+			
+		convert_color:
+		
+			cmp al, 00064  ; AL é red?
+			jne pink
+		
+			red:
+				mov ah, 2
+				jmp addTobuffer
+				
+			pink:
+				cmp al, 00080 
+				jne lblue
+				mov ah, 3
+				jmp addTobuffer
+				
+			lblue:
+				cmp al, 00048 
+				jne green
+				mov ah, 4
+				jmp addTobuffer
+			
+			green:
+				cmp al, 00032 
+				jne orange
+				mov ah, 5
+				jmp addTobuffer
+			
+			orange:
+				cmp al, 00096 
+				jne white
+				mov ah, 6
+				jmp addTobuffer
+			
+			white:
+				cmp al, 00112 
+				jne blue
+				mov ah, 7
+				jmp addTobuffer
+				
+			blue: ;00016
+				mov ah, 8
+				jmp addTobuffer
+			
+		
+		addTobuffer:;Adiciona uma cor e um espaço nas respetivas posicoes no buffer
+	
+			add ah, '0';Converte numero para string
+			MOV buffer[si], ah
+			
+			mov ah, 32; space
+			mov buffer[si+1], ah;Entre cada cor escreve um espaço
+			
+			add si, 2;Após escrever o espaço vai para próxima posição para escrever a próxima cor
+			
+			jmp next_cell
+		
+		
+
+		next_cell:;Le a celula seguinte
+		
+		add bx, 4 ;Anda para a celula da direita
+		inc ch; Nº de células percorridas
+		cmp ch, max_colunas
+		jge next_line; Se já leu o tamanho máximo de celulas que pode ler muda de linha
+		jmp cycle; Se não le a próxima celula
+		
+		next_line:;Salta para a 1ª celula de linha seguinte
+		
+		mov ah, 13; carriage return
+		mov buffer[si-2], ah; carriage return no fim da linha
+		mov ah, 10; new line
+		mov buffer[si-1], ah; entre cada linha vai haver um \n
+		
+		inc cl; Nº de linhas percorridas
+		cmp cl, max_linhas
+		jge fim; Se já leu o tamanho máximo de linhas que pode ler, termina
+		add bx, 160; Muda de linha, mas fica na ultima coluna
+		sub bx, 36; Vai para a 1ª coluna da nova linha
+		mov ch, 0; Renicia a contagem das células pois estamos numa nova linha
+		jmp cycle; Vai ler a próxima célula (1ª celula da linha nova)
+		
+		fim:
+			ret
+		
+func_colorsToBuffer endp
+
+;----------------------------------------(end) func_colorsToBuffer ----------------------------------------
+
 func_moveCursor  proc
 		;;PROG STARTS HERE
 		mov		ax, dseg
@@ -101,7 +225,7 @@ func_moveCursor  proc
 	
 		call func_limpaEcran
 		call func_readFile
-		;call func_drawTabuleiro
+		call func_drawTabuleiro
 		
 		goto_xy		POSx,POSy	; Vai para nova possição
 		mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
@@ -228,7 +352,8 @@ DIREITA:
 		jmp		CICLO
 
 fim:
-		;call func_makeFile
+		call func_colorsToBuffer
+		call func_makeFile
 		call func_limpaEcran
 		mov		ah,4CH
 		INT		21H
@@ -256,7 +381,7 @@ escreve:
     	mov		ah, 40h				; indica que é para escrever
     	
 		lea		dx, buffer			; DX aponta para a infromação a escrever
-    	mov		cx, 240				; CX fica com o numero de bytes a escrever
+    	mov		cx, 116				; CX fica com o numero de bytes a escrever
 		int		21h					; Chama a rotina de escrita
 		jnc		close				; Se não existir erro na escrita fecha o ficheiro
 	
@@ -295,83 +420,20 @@ erro_abrir:
         lea     dx,msgErrorOpen
         int     21h
         jmp     sai
-		
-tab_config:
-
-		mov   	ax, 0b800h	; Segmento de memória de vídeo onde vai ser desenhado o tabuleiro
-		mov   	es, ax
-		mov	linha, 	8	; O Tabuleiro vai começar a ser desenhado na linha 8 
-		mov	nlinhas, 6	; O Tabuleiro vai ter 6 linhas
-		
-
-
-;print_car_ciclo:
-	;mov 	dh,	tab_car	; vai imprimir o tab_caracter "SAPCE"
-	;mov	es:[bx],dh
 
 ler_ciclo:
         mov     ah,3fh			; indica que vai ser lido um ficheiro 
         mov     bx,fhandle		; bx deve conter o Handle do ficheiro previamente aberto 
         mov     cx,1			; numero de bytes a ler 
-        lea     dx,cor_fich		; vai ler para o local de memoria apontado por dx (cor_fich)
-
-		;mov	es:[bx],dx;dh
-		
+        lea     dx,car_fich		; vai ler para o local de memoria apontado por dx (car_fich)
         int     21h				; faz efectivamente a leitura
-		jc	    erro_ler		; se carry é porque aconteceu um erro
-		cmp	    ax,0			;EOF?	verifica se já estamos no fim do ficheiro 
-		je	    fecha_ficheiro	; se EOF fecha o ficheiro
-		
-		new_line_ciclo:
-	
-			mov	al, 160		
-			mov	ah, linha
-			mul	ah
-			add	ax, 60
-			mov bx, ax		; Determina Endereço onde começa a "linha". bx = 160*linha + 60
-			mov	cx, 9		; São 9 colunas
-			
-		ciclo_900:  	
-			mov 	dh,	tab_car	; vai imprimir o tab_caracter "SAPCE"
-			mov	es:[bx],dh	
-
-		;mov     ah,02h				; coloca o caracter no ecran
-		;mov	    dl,cor_fich		; este é o caracter a enviar para o ecran
-		;int	    21h				; imprime no ecran
-		;jmp	    ler_ciclo		; continua a ler o ficheiro
-	
-		mov al, cor_fich
-		and 	al,01110000b	; posição do ecran com tab_cor de fundo aleatório e tab_caracter a preto
-		;cmp	al, 0		; Se o fundo de ecran é preto
-		;je	ler_ciclo		; vai bustab_car outra tab_cor 
-
-		mov 	dh,	   tab_car	; Repete mais uma vez porque cada peça do tabuleiro ocupa dois tab_carecteres de ecran
-		mov	es:[bx],   dh		
-		mov	es:[bx+1], al	; Coloca as tab_características de tab_cor da posição atual 
-		inc	bx		
-		inc	bx		; próxima posição e ecran dois bytes à frente 
-
-		mov 	dh,	   tab_car	; Repete mais uma vez porque cada peça do tabuleiro ocupa dois tab_carecteres de ecran
-		mov	es:[bx],   dh
-		mov	es:[bx+1], al
-		inc	bx
-		inc	bx
-		
-		mov	di,1 ;func_makeDelay de 1 centesimo de segundo
-		;;call	func_makeDelay
-		loop	ciclo_900		; continua até fazer as 9 colunas que tab_correspondem a uma liha completa
-		
-		inc	linha		; Vai desenhar a próxima linha
-		dec	nlinhas		; contador de linhas
-		mov	al, nlinhas
-		cmp	al, 0		; verifica se já desenhou todas as linhas 
-		jne	ler_ciclo		; se ainda há linhas a desenhar continua  
-
-		
-        ;mov     ah,02h				; coloca o caracter no ecran
-		;mov	    dl,cor_fich		; este é o caracter a enviar para o ecran
-		;int	    21h				; imprime no ecran
-		;jmp	    ler_ciclo		; continua a ler o ficheiro
+	jc	    erro_ler		; se carry é porque aconteceu um erro
+	cmp	    ax,0			;EOF?	verifica se já estamos no fim do ficheiro 
+	je	    fecha_ficheiro	; se EOF fecha o ficheiro 
+        mov     ah,02h			; coloca o caracter no ecran
+	  mov	    dl,car_fich		; este é o caracter a enviar para o ecran
+	  int	    21h				; imprime no ecran
+	  jmp	    ler_ciclo		; continua a ler o ficheiro
 
 erro_ler:
         mov     ah,09h
@@ -404,7 +466,8 @@ func_readFile  proc
 		ret
 func_readFile	endp
 ;|||||||||||||||||||| (end) LerFich |||||||||||||||||||| 
-;|||||||||||||||||||| (start) Tabuleiro |||||||||||||||||||| 
+;|||||||||||||||||||| (start) Tabuleiro ||||||||||||||||||||
+
 func_drawTabuleiro PROC
 	;MOV	AX, DADOS
 	;MOV	DS, AX
@@ -412,7 +475,7 @@ func_drawTabuleiro PROC
 	;mov		ax, dseg
 	;mov		ds,ax
 	
-
+	xor si, si
 	mov	cx,10		; Faz o ciclo 10 vezes
 ciclo4:
 		call	func_getRandom
@@ -446,11 +509,15 @@ novatab_cor:
 		pop	ax ; 		; Vai bustab_car 'a pilha o número aleatório
 		and 	al,01110000b	; posição do ecran com tab_cor de fundo aleatório e tab_caracter a preto
 		cmp	al, 0		; Se o fundo de ecran é preto
-		je	novatab_cor		; vai bustab_car outra tab_cor 
+		je	novatab_cor		; vai bustab_car outra tab_cor
 
 		mov 	dh,	   tab_car	; Repete mais uma vez porque cada peça do tabuleiro ocupa dois tab_carecteres de ecran
-		mov	es:[bx],   dh		
-		mov	es:[bx+1], al	; Coloca as tab_características de tab_cor da posição atual 
+		mov	es:[bx],   dh
+		mov	es:[bx+1], al	; Coloca as tab_características de tab_cor da posição atual
+		push bx
+
+		pop bx
+		
 		inc	bx		
 		inc	bx		; próxima posição e ecran dois bytes à frente 
 
@@ -460,6 +527,8 @@ novatab_cor:
 		inc	bx
 		inc	bx
 		
+	
+		
 		mov	di,1 ;func_makeDelay de 1 centesimo de segundo
 		;;call	func_makeDelay
 		loop	ciclo1		; continua até fazer as 9 colunas que tab_correspondem a uma liha completa
@@ -467,13 +536,10 @@ novatab_cor:
 		inc	linha		; Vai desenhar a próxima linha
 		dec	nlinhas		; contador de linhas
 		mov	al, nlinhas
-		cmp	al, 0		; verifica se já desenhou todas as linhas 
+		cmp	al, 0		; verifica se já desenhou todas as linhas
 		jne	ciclo2		; se ainda há linhas a desenhar continua 
 return_PROC:
-	;call func_hasPlays
-	;pop dx
-	;cmp dl, 0
-	;call func_drawTabuleiro
+
 	ret
 func_drawTabuleiro ENDP
 
