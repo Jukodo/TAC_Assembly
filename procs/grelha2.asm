@@ -18,7 +18,14 @@ dseg	segment para public 'data'
 	fname	db	'grelha2.txt',0
 	fhandle dw	0
 	buffer db 54 dup (0)
-	color_str	db	" "
+	buffer_str	db	'1 5 6 7 8 9 1 5 7 8 9 2 3 7 8 15 16 18 19 20 3',13,10
+			db 	'+ - / * * + - - + * / * + - - + * / + - - + * ',13,10
+			db	'10 12 14 7 9 11 13 5 10 15 7 8 9 10 13 5 10 11',13,10 
+			db 	'/ * + - - + * / + - / * * + - - + * * + - - + ',13,10
+			db	'3 45 23 11 4 7 14 18 31 27 19 9 6 47 19 9 6 51',13,10
+			;db	'______________________________________________',13,10
+			
+	str_cor	db	"     $"
 	lala		db	10
 	msgErrorCreate	db	"Ocorreu um erro na criacao do ficheiro!$"
 	msgErrorWrite	db	"Ocorreu um erro na escrita para ficheiro!$"
@@ -37,6 +44,10 @@ dseg	segment para public 'data'
 	nlinhas		db	0
 	tab_cor		db 	0
 	tab_car		db	' '	
+	
+	number_test Db 00080  ;◄■■ TEST NUMBER.
+	RESULT     DB 6 DUP('$') ;◄■■ VARIABLE FOR THE STRING ☻.
+	TMP1       DW ?
 	;|||||||||||||||||||| (end) Tabuleiro |||||||||||||||||||| 
 dseg	ends
 
@@ -253,7 +264,7 @@ escreve:
 		mov		bx, ax				; Coloca em BX o Handle
     	mov		ah, 40h				; indica que é para escrever
     	
-		lea		dx, buffer			; DX aponta para a infromação a escrever
+		lea		dx, buffer_str			; DX aponta para a infromação a escrever
     	mov		cx, 240				; CX fica com o numero de bytes a escrever
 		int		21h					; Chama a rotina de escrita
 		jnc		close				; Se não existir erro na escrita fecha o ficheiro
@@ -339,7 +350,84 @@ func_readFile  proc
 		ret
 func_readFile	endp
 ;|||||||||||||||||||| (end) LerFich |||||||||||||||||||| 
-;|||||||||||||||||||| (start) Tabuleiro |||||||||||||||||||| 
+;|||||||||||||||||||| (start) Tabuleiro ||||||||||||||||||||
+
+
+str2num proc
+	
+	; str_cor[5] = string de armazenamento
+	; bl = 10 (denominador)
+	; ax = 00112 (numerador)
+	; al = quociente
+	; ah = resto
+	; si = 4, 3, 2, 1, 0
+	
+	mov bl, 10
+	;mov ax, 00112
+	mov si, 4
+
+
+	ciclo:
+	
+		div bl
+		cmp al, 0
+		je fim
+		
+		mov str_cor[si], ah ; str_cor[si] = resto
+		
+		;push ax
+		
+		;mov al, ah
+		;mov ah, 0
+		;push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		;push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		;call	func_printNum		; imprime POSy
+		
+		;pop ax
+		
+		dec si
+		
+	fim:
+		
+		ret
+str2num endp 
+
+print_array proc
+	
+	xor ax, ax
+	xor dx, dx
+	xor si, si
+	mov cx, 10
+	mov dl, 0
+	
+	ciclo:
+		
+		mov al, buffer[si]
+		call str2num
+		xor ax, ax
+		mov al, str_cor
+		mov buffer_str[si], al
+		
+		;xor ax, ax
+		;mov al, buffer[si]
+		;push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		;push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		;call	func_printNum		; imprime POSy
+		
+		inc si
+		inc dl
+		
+		loop ciclo
+		
+			
+	fim:
+		call str2num
+		ret
+
+
+print_array endp
+
+
 func_drawTabuleiro PROC
 	;MOV	AX, DADOS
 	;MOV	DS, AX
@@ -385,28 +473,30 @@ novatab_cor:
 
 		mov 	dh,	   tab_car	; Repete mais uma vez porque cada peça do tabuleiro ocupa dois tab_carecteres de ecran
 		mov	es:[bx],   dh
-		;pop bx
 		mov	es:[bx+1], al	; Coloca as tab_características de tab_cor da posição atual
 		push bx
-	
 		
-		cmp si, 54
-		jne set_buffer
-		
-		set_buffer:
+			;mov dl, 20
+			;mov dh, 0
+			;mov ah, 0
 			;mov al, es:[bx+1]
-			;mov bh, al
-			;mov color_str, al
-			;mov al, color_str
+			;push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+			;push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+			;call	func_printNum		; imprime POSy
 			
-			mov bl, al
+			set_buffer:
 			
-						
-			MOV	buffer[si], al
+			;mov dl, 20
+			;mov dh, 0
+			;mov ah, 0
+			;push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+			;push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+			;call	func_printNum		; imprime POSy
+			;MOV	buffer_str[si], al
 			inc si
 
 		pop bx
-
+	
 		inc	bx		
 		inc	bx		; próxima posição e ecran dois bytes à frente 
 
@@ -416,6 +506,8 @@ novatab_cor:
 		inc	bx
 		inc	bx
 		
+	
+		
 		mov	di,1 ;func_makeDelay de 1 centesimo de segundo
 		;;call	func_makeDelay
 		loop	ciclo1		; continua até fazer as 9 colunas que tab_correspondem a uma liha completa
@@ -423,10 +515,12 @@ novatab_cor:
 		inc	linha		; Vai desenhar a próxima linha
 		dec	nlinhas		; contador de linhas
 		mov	al, nlinhas
-		cmp	al, 0		; verifica se já desenhou todas as linhas 
+		cmp	al, 0		; verifica se já desenhou todas as linhas
 		jne	ciclo2		; se ainda há linhas a desenhar continua 
 return_PROC:
-	;call func_hasPlays
+
+			
+	;call print_array
 	;pop dx
 	;cmp dl, 0
 	;call func_drawTabuleiro
