@@ -17,7 +17,7 @@ dseg	segment para public 'data'
 	;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
 	fname	db	'grelha2.txt',0
 	fhandle dw	0
-	buffer	db 114 dup(0)
+	buffer	db 132 dup(0)
 			
 	str_cor	db	"     $"
 	lala		db	10
@@ -44,6 +44,8 @@ dseg	segment para public 'data'
 	
 	line_counter		db 0
 	column_counter 	db 0
+	
+	counter db 0
 	
 	
 	;|||||||||||||||||||| (end) Tabuleiro |||||||||||||||||||| 
@@ -114,13 +116,16 @@ func_colorsToBuffer proc
 	xor bx, bx 
 	xor cx, cx
 	xor si, si
+	xor dx, dx
 
 	mov bx, 1340
 	
 	cycle:
 	
 		mov	al, es:[bx+1]
-		mov byte ptr es:[bx+2], '1'
+		;mov byte ptr es:[bx+2], '1'
+		
+		call func_makeDelay
 		call func_makeDelay
 
 		;swtich(ah):
@@ -134,7 +139,6 @@ func_colorsToBuffer proc
 			
 			
 		convert_color:
-		
 			cmp al, 00064  ; AL é red?
 			jne pink
 		
@@ -181,11 +185,14 @@ func_colorsToBuffer proc
 	
 			add ah, '0';Converte numero para string
 			MOV buffer[si], ah
+			mov byte ptr es:[bx+2], ah
 			
+			inc si; Próxima posição para escrever um espaço
 			mov ah, 32; space
-			mov buffer[si+1], ah;Entre cada cor escreve um espaço
+			mov buffer[si], ah;Entre cada cor escreve um espaço
 			
-			add si, 2;Após escrever o espaço vai para próxima posição para escrever a próxima cor
+			inc si;Após escrever o espaço vai para próxima posição para escrever a próxima cor
+			
 			
 			jmp next_cell
 		
@@ -201,10 +208,15 @@ func_colorsToBuffer proc
 		
 		next_line:;Salta para a 1ª celula de linha seguinte
 		
+		inc si
 		mov ah, 13; carriage return
-		mov buffer[si-2], ah; carriage return no fim da linha
+		mov buffer[si], ah; carriage return no fim da linha
+		
+		inc si
 		mov ah, 10; new line
-		mov buffer[si-1], ah; entre cada linha vai haver um \n
+		mov buffer[si], ah; entre cada linha vai haver um \n
+		
+		inc si
 		
 		inc cl; Nº de linhas percorridas
 		cmp cl, max_linhas
@@ -388,7 +400,7 @@ escreve:
     	mov		ah, 40h				; indica que é para escrever
     	
 		lea		dx, buffer			; DX aponta para a infromação a escrever
-    	mov		cx, 116				; CX fica com o numero de bytes a escrever
+    	mov		cx, 132				; CX fica com o numero de bytes a escrever
 		int		21h					; Chama a rotina de escrita
 		jnc		close				; Se não existir erro na escrita fecha o ficheiro
 	
