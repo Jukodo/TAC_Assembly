@@ -50,6 +50,8 @@ dseg	segment para public 'data'
 	array_exploding db 54 dup (0)
 	array_saveY		db 0
 	array_saveX		db 0
+	;
+	specialCount 	db 0
 	;|||||||||||||||||||| (end) New Stuff |||||||||||||||||||| 
 dseg	ends
 
@@ -71,60 +73,44 @@ debug_table macro  ;Debug
 endm
 
 ;Recebe as coordenadas absolutas (consola) e converte estas para coordenadas relativas à tabela
-macro_convertPosY macro
-	sub ah, 8 ;POSy - 8
-	mov array_saveY, ah
-endm
-macro_convertPosX macro
-	mov bl, 2 ;A dividir por 2
-	div bl
-	sub al, 15 ;POSx/2 - 15
+macro_convertPos macro
+	mov ax, bx
+	mov dl, 160
+	div dl
+	sub al, 8
+	mov array_saveY, al
+	add al, 8
+	mov ah, 0
+	mul dl
+	mov dx, ax
+	mov ax, bx
+	sub ax, dx
+	mov dl, 4
+	div dl
+	sub al, 15
 	mov array_saveX, al
 endm
 
 ;Recebe as coordenadas relativas à tabela e muda o estado do index calculado para 1
 macro_setEstadoXY macro
+	xor ax, ax
 	mov al, array_saveY
 	mov ah, 9
 	mul ah
+	xor dx, dx
 	mov dl, array_saveX
 	add ax, dx
 	mov bx, ax
 	mov array_exploding [bx], 1
-	
-	
-		mov dl, 6
-		mov dh, 0
-		mov al, array_exploding [bx-1]
-		
-		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-		call	func_printNum		; imprime POSx
-		
-		
-		mov dl, 7
-		mov dh, 0
-		mov al, array_exploding [bx]
-		
-		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-		call	func_printNum		; imprime POSx
-		
-		
-		mov dl, 8
-		mov dh, 0
-		mov al, array_exploding [bx+1]
-		
-		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-		call	func_printNum		; imprime POSx
 endm
 
 ;Procura o index a partir das coordenadas relativas à tabela e apanha o estado
 macro_getEstadoXY macro
+	xor ax, ax
 	mov al, array_saveY
 	mov ah, 9
 	mul ah
+	xor dx, dx
 	mov dl, array_saveX
 	add ax, dx
 	mov bx, ax
@@ -245,7 +231,7 @@ func_hasPlays endp
 
 func_explodeByArray proc
 	xor cx, cx
-	mov bx, 1339
+	mov bx, 1341
 	mov si, 0
 	ciclo:
 		inc ch
@@ -255,7 +241,7 @@ func_explodeByArray proc
 		je draw_black
 		jmp next_column
 	draw_black:
-		mov byte ptr es:[bx+1], 'H'
+		mov byte ptr es:[bx-1], 'H'
 	next_column:
 		cmp ch, max_colunas
 		je next_line
@@ -354,124 +340,262 @@ func_explode proc
 			cmp ah, al
 			jne no_explode
 	fill_array:
-		mov byte ptr es:[bx-1], 'O'
-		
-		xor ax, ax
-		mov al, POSx
-		macro_convertPosX
-		xor ax, ax
-		mov ah, POSy
-		macro_convertPosY
-		
-		mov dl, 3
-		mov dh, 0
-		mov ax, 0
-		mov al, array_saveY
-		
-		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-		call	func_printNum		; imprime POSy
-		mov dl, 4
-		mov dh, 0
-		mov ax, 0
-		mov al, array_saveX
-		
-		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-		call	func_printNum		; imprime POSy
-		
+		macro_convertPos
+		macro_getEstadoXY
+		mov byte ptr es:[1330], ' '
+		cmp dl, 1
+		je no_explode
 		macro_setEstadoXY
-		
+		mov byte ptr es:[1330], 1 
 		vertical:
 			start_top:
-				xor cx, cx
 				mov bx, posCell_now
 			top:
-				inc cl ;Quantidade de vezes que subiu
 				mov ah, corCell_now ;AH fica com a cor da célula no cursor
 				sub bx, 160 ;Subtrai 160 para subir
 				mov al, es:[bx] ;AL fica com a cor da célula atual
 				cmp ah, al
 				jne start_bottom ;Se as cores forem diferentes passa para o próximo passo
+				macro_convertPos
 				push bx
-				xor ax, ax
-				mov al, POSx ;AL = POSx
-				macro_convertPosX ;Converte as coordenadas X e Y para serem usadas no array_exploding
-				mov al, POSy ;AH fica com a posição Y da célula do cursor
-				sub al, cl ;AL fica com a quantidade de vezes que subiu
-				mov ah, al
-				macro_convertPosY ;Converte as coordenadas X e Y para serem usadas no array_exploding
+				macro_getEstadoXY
+				pop bx
+				cmp dl, 1
+				je start_bottom
+				push bx
 				macro_setEstadoXY
 				pop bx
+				top_check_left:
+					mov ah, corCell_now
+					mov al, es:[bx-4]
+					cmp ah, al
+					jne top_check_right
+					push bx
+					sub bx, 4
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je top_check_right
+					push bx
+					macro_setEstadoXY
+					pop bx
+					inc specialCount
+					sub bx, 4
+					push bx
+					add bx, 4
+				top_check_right:
+					mov ah, corCell_now
+					mov al, es:[bx+4]
+					cmp ah, al
+					jne top
+					push bx
+					add bx, 4
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je top
+					push bx
+					macro_setEstadoXY
+					pop bx
+					inc specialCount
+					add bx, 4
+					push bx
+					sub bx, 4
 				jmp top
 			start_bottom:
 				xor cx, cx
 				mov bx, posCell_now
 			bottom:
-				inc cl ;Quantidade de vezes que desceu
 				mov ah, corCell_now
 				add bx, 160
+				je start_left
 				mov al, es:[bx]
 				cmp ah, al
 				jne start_left ;Se as cores forem diferentes passa para o próximo passo
+				macro_convertPos
 				push bx
-				xor ax, ax
-				mov al, POSx ;AL = POSx
-				macro_convertPosX ;Converte as coordenadas X e Y para serem usadas no array_exploding
-				mov al, POSy ;AH fica com a posição Y da célula do cursor
-				add al, cl ;AL fica com a quantidade de vezes que desceu
-				mov ah, al
-				macro_convertPosY ;Converte as coordenadas X e Y para serem usadas no array_exploding
+				macro_getEstadoXY
+				pop bx
+				cmp dl, 1
+				je start_left
+				push bx
 				macro_setEstadoXY
 				pop bx
+				bottom_check_left:
+					mov ah, corCell_now
+					mov al, es:[bx-4]
+					cmp ah, al
+					jne bottom_check_right
+					push bx
+					sub bx, 4
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je bottom_check_right
+					push bx
+					macro_setEstadoXY
+					pop bx
+					inc specialCount
+					sub bx, 4
+					push bx
+					add bx, 4
+				bottom_check_right:
+					mov ah, corCell_now
+					mov al, es:[bx+4]
+					cmp ah, al
+					jne bottom
+					push bx
+					add bx, 4
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je bottom
+					push bx
+					macro_setEstadoXY
+					pop bx
+					inc specialCount
+					add bx, 4
+					push bx
+					sub bx, 4
 				jmp bottom
 		horizontal:
 			start_left:
 				xor cx, cx
 				mov bx, posCell_now
 			left:
-				inc cl ;Quantidade de vezes que se moveu
 				mov ah, corCell_now
 				sub bx, 4
 				mov al, es:[bx]
 				cmp ah, al
 				jne start_right ;Se as cores forem diferentes passa para o próximo passo
+				macro_convertPos
 				push bx
-				mov ah, POSy ;AH = POSy
-				macro_convertPosY ;Converte as coordenadas X e Y para serem usadas no array_exploding
-				mov al, 2 ;AH fica com a posição X da célula do cursor
-				mov ah, cl
-				mul ah
-				mov dl, POSx
-				sub dl, al
-				mov al, dl
-				macro_convertPosX ;Converte as coordenadas X e Y para serem usadas no array_exploding
+				macro_getEstadoXY
+				pop bx
+				cmp dl, 1
+				je start_right
+				push bx
 				macro_setEstadoXY
 				pop bx
+				left_check_top:
+					mov ah, corCell_now
+					mov al, es:[bx-160]
+					cmp ah, al
+					jne left_check_bottom
+					push bx
+					sub bx, 160
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je left_check_bottom
+					push bx
+					macro_setEstadoXY
+					pop bx
+					inc specialCount
+					sub bx, 160
+					push bx
+					add bx, 160
+				left_check_bottom:
+					mov ah, corCell_now
+					mov al, es:[bx+160]
+					cmp ah, al
+					jne left
+					push bx
+					add bx, 160
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je left
+					push bx
+					macro_setEstadoXY
+					pop bx
+					inc specialCount
+					add bx, 160
+					push bx
+					sub bx, 160
 				jmp left
 			start_right:
 				xor cx, cx
 				mov bx, posCell_now
 			right:
-				inc cl ;Quantidade de vezes que se moveu
 				mov ah, corCell_now
 				add bx, 4
 				mov al, es:[bx]
 				cmp ah, al
-				jne boom
+				jne is_end
+				macro_convertPos
 				push bx
-				mov ah, POSy ;AH = POSy
-				macro_convertPosY ;Converte as coordenadas X e Y para serem usadas no array_exploding
-				mov al, 2 ;AH fica com a posição X da célula do cursor
-				mov ah, cl
-				mul ah
-				mov dl, POSx
-				add dl, al
-				mov al, dl
-				macro_convertPosX ;Converte as coordenadas X e Y para serem usadas no array_exploding
+				macro_getEstadoXY
+				pop bx
+				cmp dl, 1
+				je is_end
+				push bx
 				macro_setEstadoXY
 				pop bx
+				right_check_top:
+					mov ah, corCell_now
+					mov al, es:[bx-160]
+					cmp ah, al
+					jne right_check_bottom
+					push bx
+					sub bx, 160
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je right_check_bottom
+					push bx
+					macro_setEstadoXY
+					pop bx
+					inc specialCount
+					sub bx, 160
+					push bx
+					add bx, 160
+				right_check_bottom:
+					mov ah, corCell_now
+					mov al, es:[bx+160]
+					cmp ah, al
+					jne right
+					push bx
+					add bx, 160
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je right
+					push bx
+					macro_setEstadoXY
+					pop bx
+					inc specialCount
+					add bx, 160
+					push bx
+					sub bx, 160
 				jmp right
+	is_end:
+		mov al, specialCount
+		
+		cmp al, 1
+		jl boom
+		dec specialCount
+		pop bx
+		mov dl, specialCount
+		add dl, 10
+		mov dh, 0
+		mov ax, bx
+		
+		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		call	func_printNum		; imprime POSx
+		
+		mov posCell_now, bx
+		call func_debugArray
+		jmp vertical
 	boom:
 		call func_debugArray
 		call func_explodeByArray
