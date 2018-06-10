@@ -52,6 +52,8 @@ dseg	segment para public 'data'
 	array_saveX		db 0
 	;
 	specialCount 	db 0
+	;
+	pontuacao		db 0
 	;|||||||||||||||||||| (end) New Stuff |||||||||||||||||||| 
 dseg	ends
 
@@ -208,6 +210,7 @@ func_hasPlays endp
 
 func_explodeByArray proc
 	xor cx, cx
+	xor dx, dx
 	mov bx, 1341
 	mov si, 0
 	ciclo:
@@ -218,6 +221,7 @@ func_explodeByArray proc
 		je draw_black
 		jmp next_column
 	draw_black:
+		inc dl
 		mov byte ptr es:[bx], 0h
 		mov byte ptr es:[bx+2], 0h
 	next_column:
@@ -234,6 +238,7 @@ func_explodeByArray proc
 		sub bx, 32
 		jmp ciclo
 	fim:
+		add pontuacao, dl
 		ret
 func_explodeByArray endp
 
@@ -241,38 +246,39 @@ func_atualizaTabela proc
 	xor cx, cx
 	mov cl, max_linhas
 	start:
-		mov bx, 2173
+		mov bx, 2173 ;Posição da última célula
 		xor ax, ax
 		mov al, max_linhas
 		sub al, cl
 		mov ch, 160
-		mul ch
+		mul ch ;Para calcular em que linha está
 		sub bx, ax
 		mov ch, 0
 	check_column:
-		mov dh, es:[bx]
-		cmp dh, 0
-		jne next_column
+		mov dh, es:[bx] ;Célula a ser vista
+		cmp dh, 0 ;Se for preto, vai procurar células em cima até encontrar uma cor sem ser preto
+		jne next_column ;Senão passa para a próxima célula
 		push cx
 		xor cx, cx
 		xor ax, ax
 		next_color:
 			inc cl
 			mov al, 160
-			mul cl
+			mul cl ; CL * AL = Quantas linhas em cima vai procurar
 			mov si, bx
 			sub si, ax
-			mov dl, es:[si]
-			cmp dl, 0
-			jne found
+			mov dl, es:[si] ; Cor da célula em cima da que está a ser vista
+			cmp dl, 0 ; Se for preto vai passar para uma célula em cima
+			jne found ; Senão a cor é roubada pela célula a ser vista, e esta passa a preto
 			jmp next_color
 			found:
 				mov byte ptr es:[bx], dl
 				mov byte ptr es:[bx+2], dl
-				mov byte ptr es:[si], 0
-				mov byte ptr es:[si+2], 0
+				mov byte ptr es:[si], 00000000b
+				mov byte ptr es:[si+2], 00000000b
 				call func_makeDelay
 				call func_makeDelay
+			skip:
 		pop cx
 	next_column:
 		sub bx, 4
@@ -281,9 +287,9 @@ func_atualizaTabela proc
 		jne check_column
 	next_line:
 		dec cl
-		cmp cl, 0
+		cmp cl, 1
 		jg start
-	call func_fillBlack
+	call func_fillBlack ; Preenche os campos que ficaram vazios
 	ret
 func_atualizaTabela endp
 
@@ -293,15 +299,15 @@ func_fillBlack proc
 	ciclo:
 		inc ch
 		mov al, es:[bx]
-		and al,01110000b
-		cmp	al, 0
+		and al,01110000b ; Necessário para ignorar a cor foreground, e se AL ficar a 0, a cor é preta
+		cmp	al, 0 ;Se for preto vai desenhar uma cor Random
 		je draw_color
-		jmp next_column
+		jmp next_column ;Senão passa para a próxima célula
 	draw_color:
 		call func_getRandom
 		pop	ax
 		and al,01110000b
-		cmp	al, 0
+		cmp	al, 0 ; Enquanto a cor for preto, repete
 		je	draw_color
 		mov byte ptr es:[bx], al
 		mov byte ptr es:[bx+2], al
@@ -641,6 +647,16 @@ func_explode proc
 	boom:
 		call func_debugArray
 		call func_explodeByArray
+		
+		mov dl, 10
+		mov dh, 0
+		mov ax, 0
+		mov al, pontuacao
+		
+		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		call	func_printNum		; imprime POSx
+		
 		call func_atualizaTabela
 		call func_restartArray
 		call func_debugArray
