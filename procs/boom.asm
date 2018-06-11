@@ -213,6 +213,7 @@ func_explodeByArray proc
 	xor dx, dx
 	mov bx, 1341
 	mov si, 0
+	mov dh, 1
 	ciclo:
 		inc ch
 		mov al, array_exploding [si]
@@ -224,6 +225,12 @@ func_explodeByArray proc
 		inc dl
 		mov byte ptr es:[bx], 0h
 		mov byte ptr es:[bx+2], 0h
+		mov ah, es:[bx-1]
+		cmp ah, 1
+		je is_special
+		jmp next_column
+	is_special:
+		mov dh, 2
 	next_column:
 		cmp ch, max_colunas
 		je next_line
@@ -238,7 +245,10 @@ func_explodeByArray proc
 		sub bx, 32
 		jmp ciclo
 	fim:
-		add pontuacao, dl
+		xor ax, ax
+		mov al, dl
+		mul dh
+		add pontuacao, al
 		ret
 func_explodeByArray endp
 
@@ -274,7 +284,12 @@ func_atualizaTabela proc
 			found:
 				mov byte ptr es:[bx], dl
 				mov byte ptr es:[bx+2], dl
+				mov dl, es:[si-1]
+				mov byte ptr es:[bx-1], dl
+				mov byte ptr es:[bx+1], dl
+				mov byte ptr es:[si-1], ' '
 				mov byte ptr es:[si], 00000000b
+				mov byte ptr es:[si+1], ' '
 				mov byte ptr es:[si+2], 00000000b
 				call func_makeDelay
 				call func_makeDelay
@@ -694,7 +709,7 @@ func_limpaEcran	endp
 ;########################################################################
 ; LE UMA TECLA	
 
-func_leTecla	PROC
+func_leTecla PROC
 
 		mov		ah,08h
 		int		21h
@@ -999,20 +1014,27 @@ ciclo1:
 		mov 	dh,	tab_car	; vai imprimir o tab_caracter "SAPCE"
 		mov	es:[bx],dh	;
 	
-novatab_cor:	
+novatab_cor:
+		mov 	dh,	tab_car	; vai imprimir o tab_caracter "SAPCE"
+		call func_getRandom
+		pop	ax
+		and al,01010101b
+		cmp	al, 01010101b
+		jne get_color
+		mov dh, 1
+		
+		get_color:
 		call	func_getRandom	; Calcula próximo aleatório que é colocado na pinha 
 		pop	ax ; 		; Vai bustab_car 'a pilha o número aleatório
 		and 	al,01110000b	; posição do ecran com tab_cor de fundo aleatório e tab_caracter a preto
 		cmp	al, 0		; Se o fundo de ecran é preto
 		je	novatab_cor		; vai bustab_car outra tab_cor 
 
-		mov 	dh,	   tab_car	; Repete mais uma vez porque cada peça do tabuleiro ocupa dois tab_carecteres de ecran
 		mov	es:[bx],   dh		
 		mov	es:[bx+1], al	; Coloca as tab_características de tab_cor da posição atual 
 		inc	bx		
 		inc	bx		; próxima posição e ecran dois bytes à frente 
-
-		mov 	dh,	   tab_car	; Repete mais uma vez porque cada peça do tabuleiro ocupa dois tab_carecteres de ecran
+		
 		mov	es:[bx],   dh
 		mov	es:[bx+1], al
 		inc	bx
