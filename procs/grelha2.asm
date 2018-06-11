@@ -208,15 +208,15 @@ func_colorsToBuffer proc
 		
 		next_line:;Salta para a 1ª celula de linha seguinte
 		
-		inc si
-		mov ah, 13; carriage return
-		mov buffer[si], ah; carriage return no fim da linha
+		;inc si
+		;mov ah, 13; carriage return
+		;mov buffer[si], ah; carriage return no fim da linha
 		
-		inc si
-		mov ah, 10; new line
-		mov buffer[si], ah; entre cada linha vai haver um \n
+		;inc si
+		;mov ah, 10; new line
+		;mov buffer[si], ah; entre cada linha vai haver um \n
 		
-		inc si
+		;inc si
 		
 		inc cl; Nº de linhas percorridas
 		cmp cl, max_linhas

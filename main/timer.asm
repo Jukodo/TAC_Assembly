@@ -180,6 +180,7 @@ Trata_Horas PROC
 		je		fim_horas			; Se a hora não mudou desde a última leitura sai.
 		mov		Old_seg, AX			; Se segundos são diferentes actualiza informação do tempo 
 		
+		GOTO_XY	20,10
 		MOV AX, Timer
 		DEC AX
 		MOV Timer, AX
@@ -191,20 +192,10 @@ Trata_Horas PROC
 		MOV 	STR12[1],ah
 		MOV 	STR12[2],'s'		
 		MOV 	STR12[3],'$'
-		;GOTO_XY	20,10
+		
 		MOSTRA	STR12 
 		
-		mov 	ax,Segundos
-		MOV 	bl, 10     
-		div 	bl
-		add 	al, 30h				; Caracter Correspondente às dezenas
-		add		ah,	30h				; Caracter Correspondente às unidades
-		MOV 	STR12[0],al			; 
-		MOV 	STR12[1],ah
-		MOV 	STR12[2],'s'		
-		MOV 	STR12[3],'$'
-		;GOTO_XY	10,1
-		MOSTRA	STR12
+	
 
 				
         
