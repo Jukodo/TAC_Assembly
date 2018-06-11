@@ -1032,16 +1032,6 @@ func_drawTabuleiro PROC
 
 	mov	cx,10		; Faz o ciclo 10 vezes
 ciclo4:
-		call	func_getRandom
-		pop	ax 		; vai bustab_car 'a pilha o número aleatório
-
-		mov	dl,cl	
-		mov	dh,70
-		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
-		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
-		call	func_printNum		; imprime 10 aleatórios na parte direita do ecran
-		loop	ciclo4		; Ciclo de impressão dos números aleatórios
-		
 		mov   	ax, 0b800h	; Segmento de memória de vídeo onde vai ser desenhado o tabuleiro
 		mov   	es, ax	
 		mov	linha, 	8	; O Tabuleiro vai começar a ser desenhado na linha 8 
