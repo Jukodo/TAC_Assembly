@@ -118,17 +118,17 @@ func_colorsToBuffer proc
 	xor si, si
 	xor dx, dx
 
-	mov bx, 1340
+	mov bx, 1340; Vai para a posição absoluta da 1ª celula da grelha (linha 0, coluna 0)
 	
 	cycle:
 	
-		mov	al, es:[bx+1]
+		mov	al, es:[bx+1]; Guarda a cor da célula
 		;mov byte ptr es:[bx+2], '1'
 		
 		call func_makeDelay
 		call func_makeDelay
 
-		;swtich(ah):
+		;swtich(al):
 		;	case 00064: ah = 2 (red)
 		;	case 00080: ah = 3 (pink)
 		;	case 00048: ah = 4 (lblue)
