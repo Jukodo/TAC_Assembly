@@ -41,183 +41,688 @@ dseg	segment para public 'data'
 	tab_cor		db 	0
 	tab_car		db	' '	
 	;|||||||||||||||||||| (end) Tabuleiro |||||||||||||||||||| 
+	;|||||||||||||||||||| (start) New Stuff |||||||||||||||||||| 
+	posCell_now		dw 0
+	corCell_now		db 0
+	max_linhas		db 6
+	max_colunas 	db 9
+	;
+	array_exploding db 54 dup (0)
+	array_saveY		db 0
+	array_saveX		db 0
+	;
+	specialCount 	db 0
+	;
+	pontuacao		db 0
+	;
+	environment		db 0
+	;|||||||||||||||||||| (end) New Stuff |||||||||||||||||||| 
+	;|||||||||||||||||||| (start) Menu |||||||||||||||||||| 
+	menu_POSy		db 	1
+	menu_POSx		db 	1
+	menu_POSya		db 	1
+	menu_POSxa		db 	1
+	menu_Car		db	0
+	menu_Cor		db	0
+	menu_Car2		db	0
+	menu_Cor2		db 	0
+	
+	str_opt1		db 	"1 $"
+	str_opt2		db 	"2 $"
+	str_opt3		db 	"3 $"
+	str_opt4		db 	"4 $"
+	
+	str_jogar		db 	" Jogar$"	
+	str_pontuacoes 	db 	" Ver pontuacoes$"
+	str_grelha 		db 	" Configurar grelha$"
+	str_sair		db 	" Sair$"
+	
+	selected_opt	db	1 ;Inicialmente a opção 1 está selecionada
+	;|||||||||||||||||||| (end) Menu |||||||||||||||||||| 
+	;|||||||||||||||||||| (start) Timer |||||||||||||||||||| 
+	STR12	 		DB 		"            "	; String para 12 digitos	
+	Segundos		dw		0				; Vai guardar os segundos actuais
+	Timer		dw		60
+	Old_seg		dw		0				; Guarda os últimos segundos que foram lidos
+	;|||||||||||||||||||| (end) Timer |||||||||||||||||||| 
 dseg	ends
 
 cseg	segment para public 'code'
 assume		cs:cseg, ds:dseg
 
+espera_tecla macro 
+		mov ah,07h
+		int 21h
+endm
 
+;Recebe as coordenadas absolutas (consola) e converte estas para coordenadas relativas à tabela
+macro_convertPos macro
+	mov ax, bx
+	mov dl, 160
+	div dl
+	sub al, 8
+	mov array_saveY, al
+	add al, 8
+	mov ah, 0
+	mul dl
+	mov dx, ax
+	mov ax, bx
+	sub ax, dx
+	mov dl, 4
+	div dl
+	sub al, 15
+	mov array_saveX, al
+endm
+
+;Recebe as coordenadas relativas à tabela e muda o estado do index calculado para 1
+func_setEstadoXY macro
+	push bx
+	xor ax, ax
+	mov al, array_saveY
+	mov ah, 9
+	mul ah
+	xor dx, dx
+	mov dl, array_saveX
+	add ax, dx
+	mov bx, ax
+	mov array_exploding [bx], 1
+	pop bx
+endm
+
+;Procura o index a partir das coordenadas relativas à tabela e apanha o estado
+macro_getEstadoXY macro
+	push bx
+	xor ax, ax
+	mov al, array_saveY
+	mov ah, 9
+	mul ah
+	xor dx, dx
+	mov dl, array_saveX
+	add ax, dx
+	mov bx, ax
+	mov dl, array_exploding [bx]
+	pop bx
+endm
 ;|||||||||||||||||||| (start) Procs |||||||||||||||||||| 
+
+macro_puts MACRO STR 
+	MOV AH,09H
+	LEA DX,STR 
+	INT 21H
+ENDM
+; DEVOLVE AX
+
+
 func_hasPlays proc
 	start:
 		xor dx, dx ;Contador de espaços possiveis
-		mov	al, 160;Espaços por linha
-		mov	ah, 8;POSy
-		mul	ah ;160 * POSy
-		add	ax, 60; (160 * POSy) + POSx
-		mov bx, ax; BX = AX
-		add bx, 1 ;Para obter a cor do primeiro bloco
-		mov cl, 6;Quantidade máxima de linhas a verificar
-		mov ch, 9;Quantidade máxima de colunas a verificar
+		mov ax, 1341
+		mov posCell_now, ax
+		mov bx, ax;160 * 8 + 60 + 1 (Celulas por linha * linhas + Celulas até a posição em X + Valor para obter a cor (0 - caracter, 1 - cor)
+		mov cl, 1;Quantidade máxima de linhas a verificar
+		mov ch, 1;Quantidade máxima de colunas a verificar
 	get_color_around:
-		mov	al, es:[bx] ;Posição do cursor
+		xor dx, dx ;Contador de espaços possiveis
+		mov ax, posCell_now
+		mov bx, ax
+		mov	al, es:[bx] ;Cor na posição do cursor
+		mov corCell_now, al
+		;mov byte ptr es:[bx],7
+		
+		;espera_tecla
+		
 		linhas:
-			mov ch, 9
-			dec cl
-			cmp cl, 0
-			jl no_plays
 			top:
 				inc dl ;Quantidade de espaços com a cor igual à do cursor
 				sub bx, 160 ;Mudar para a linha em cima
 				mov ah, es:[bx] ;Posição em cima do cursor
+				mov al, corCell_now
 				cmp ah, al ;Verificar se a cor do bloco atual é igual ao do cursor
 				je top ;Se sim, repete
 				dec dl ;Se não for igual, não incrementa a quantidade de espaços com a cor igual
-				mov al, 160
-				mov ah, dl 
-				mul ah ;AX = AL * AH (AX = 160*Quant)
-				add bx, ax ; Volta à posição do cursor
+				mov ax, posCell_now
+				mov bx, ax
 			bottom:
 				inc dl ;Quantidade de espaços com a cor igual à do cursor
 				add bx, 160 ;Mudar para a linha em baixo
 				mov ah, es:[bx] ;Posição em baixo do cursor
+				mov al, corCell_now
 				cmp ah, al ;Verificar se a cor do bloco atual é igual ao do cursor
 				je bottom ;Se sim, repete
 				dec dl ;Se não for igual, não incrementa a quantidade de espaços com a cor igual
-				cmp dl, 3 ;Se DL >= 3, tem jogadas
+				cmp dl, 1	 ;Se DL >= 3, tem jogadas
 				jge has_plays
-				mov al, 160
-				mov ah, dl 
-				mul ah ;AX = AL * AH (AX = 160*Quant)
-				sub bx, ax ; Volta à posição do cursor
+				mov ax, posCell_now
+				mov bx, ax
 		colunas:
-			dec ch
 			left:
 				inc dh ;Quantidade de espaços com a cor igual à do cursor
-				sub bx, 2 ;Mudar para o bloco atrás
+				sub bx, 4 ;Mudar para o bloco atrás
 				mov ah, es:[bx] ;Posição atrás do cursor
+				mov al, corCell_now
 				cmp ah, al ;Verificar se a cor do bloco atual é igual ao do cursor
 				je left ;Se sim, repete
 				dec dh ;Se não for igual, não incrementa a quantidade de espaços com a cor igual
-				mov al, 2
-				mov ah, dl
-				mul ah ;AX = AL * AH (AX = 2*Quant)
-				add bx, ax ; Volta à posição do cursor
+				mov ax, posCell_now
+				mov bx, ax
 			right:
 				inc dh
-				add bx, 2 ;Mudar para o bloco à frente
+				add bx, 4 ;Mudar para o bloco à frente
 				mov ah, es:[bx] ;Posição à frente do cursor
+				mov al, corCell_now
 				cmp ah, al ;Verificar se a cor do bloco atual é igual ao do cursor
 				je right ;Se sim, repete
 				dec dh ;Se não for igual, não incrementa a quantidade de espaços com a cor igual
-				cmp dh, 3;Se DL >= 3, tem jogadas
+				cmp dh, 1;Se DL >= 3, tem jogadas
 				jge has_plays
-				cmp ch, 0
-				jl linhas
-				jmp no_plays
+				mov ax, posCell_now
+				mov bx, ax
+				cmp ch, max_colunas
+				jl next_column
+				cmp ch, max_colunas
+				jge next_line
+	next_line:
+		inc cl
+		cmp cl, max_linhas
+		jg no_plays
+		mov ch, 1
+		mov ax, posCell_now
+		add ax, 160
+		sub ax, 32
+		mov posCell_now, ax
+		jmp get_color_around
+	next_column:
+		inc ch
+		mov ax, posCell_now
+		add ax, 4
+		mov posCell_now, ax
+		jmp get_color_around
 	has_plays:
-		ret
+		ret 
 	no_plays:
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
-		call func_makeDelay
 		call func_drawTabuleiro
 		jmp start
 		ret
 func_hasPlays endp
-COMMENT @
-func_explode proc
-	;mov al, posY
-	;mov ah, posX
-	cursor_at:
-		xor dx, dx
+
+func_explodeByArray proc
+	xor cx, cx
+	xor dx, dx
+	mov bx, 1341
+	mov si, 0
+	mov dh, 1
+	ciclo:
+		inc ch
+		mov al, array_exploding [si]
+		inc si
+		cmp al, 1
+		je draw_black
+		jmp next_column
+	draw_black:
+		inc dl
+		mov byte ptr es:[bx], 0h
+		mov byte ptr es:[bx+2], 0h
+		mov ah, es:[bx-1]
+		cmp ah, 1
+		je is_special
+		jmp next_column
+	is_special:
+		mov dh, 2
+	next_column:
+		cmp ch, max_colunas
+		je next_line
+		add bx, 4
+		jmp ciclo
+	next_line:
+		mov ch, 0
+		inc cl
+		cmp cl, max_linhas
+		je fim
+		add bx, 160
+		sub bx, 32
+		jmp ciclo
+	fim:
+		xor ax, ax
+		mov al, dl
+		mul dh
+		add pontuacao, al
+		ret
+func_explodeByArray endp
+
+func_atualizaTabela proc
+	xor cx, cx
+	mov cl, max_linhas
+	start:
+		mov bx, 2173 ;Posição da última célula
+		xor ax, ax
+		mov al, max_linhas
+		sub al, cl
+		mov ch, 160
+		mul ch ;Para calcular em que linha está
+		sub bx, ax
+		mov ch, 0
+	check_column:
+		mov dh, es:[bx] ;Célula a ser vista
+		cmp dh, 0 ;Se for preto, vai procurar células em cima até encontrar uma cor sem ser preto
+		jne next_column ;Senão passa para a próxima célula
+		push cx
 		xor cx, cx
-		mov	al, 160;Espaços por linha
-		mov	ah, 1;POSy
-		mul	ah ;160 * POSy
-		add	ax, 60; (160 * POSy) + POSx
+		xor ax, ax
+		next_color:
+			inc cl
+			mov al, 160
+			mul cl ; CL * AL = Quantas linhas em cima vai procurar
+			mov si, bx
+			sub si, ax
+			mov dl, es:[si] ; Cor da célula em cima da que está a ser vista
+			cmp dl, 0 ; Se for preto vai passar para uma célula em cima
+			jne found ; Senão a cor é roubada pela célula a ser vista, e esta passa a preto
+			jmp next_color
+			found:
+				mov byte ptr es:[bx], dl
+				mov byte ptr es:[bx+2], dl
+				mov dl, es:[si-1]
+				mov byte ptr es:[bx-1], dl
+				mov byte ptr es:[bx+1], dl
+				mov byte ptr es:[si-1], ' '
+				mov byte ptr es:[si], 00000000b
+				mov byte ptr es:[si+1], ' '
+				mov byte ptr es:[si+2], 00000000b
+				call func_makeDelay
+				call func_makeDelay
+			skip:
+		pop cx
+	next_column:
+		sub bx, 4
+		inc ch
+		cmp ch, max_colunas
+		jne check_column
+	next_line:
+		dec cl
+		cmp cl, 1
+		jg start
+	call func_fillBlack ; Preenche os campos que ficaram vazios
+	
+	mov ah, 08h		; Guarda o Caracter que está na posição do Cursor
+	mov		bh,0		; numero da página
+	int		10h			
+	mov		Car, ah	; Guarda o Caracter que está na posição do Cursor
+	mov		Car2, ah	; Guarda a cor que está na posição do Cursor
+	
+	ret
+func_atualizaTabela endp
+
+func_fillBlack proc
+	xor cx, cx
+	mov bx, 1341
+	ciclo:
+		inc ch
+		mov al, es:[bx]
+		and al,01110000b ; Necessário para ignorar a cor foreground, e se AL ficar a 0, a cor é preta
+		cmp	al, 0 ;Se for preto vai desenhar uma cor Random
+		je draw_color
+		jmp next_column ;Senão passa para a próxima célula
+	draw_color:
+		call func_getRandom
+		pop	ax
+		and al,01110000b
+		cmp	al, 0 ; Enquanto a cor for preto, repete
+		je	draw_color
+		mov byte ptr es:[bx], al
+		mov byte ptr es:[bx+2], al
+		call func_makeDelay
+		call func_makeDelay
+	next_column:
+		cmp ch, max_colunas
+		je next_line
+		add bx, 4
+		jmp ciclo
+	next_line:
+		mov ch, 0
+		inc cl
+		cmp cl, max_linhas
+		je fim
+		add bx, 160
+		sub bx, 32
+		jmp ciclo
+	fim:
+		ret
+func_fillBlack endp
+
+func_restartArray proc
+	xor cx, cx
+	mov cl, 54
+	mov si, 0
+	ciclo:
+		mov array_exploding[si], 0
+		inc si
+		dec cl
+		cmp cl, 0
+		jg ciclo
+	mov byte ptr es:[40], 'F'
+	ret
+func_restartArray endp
+
+func_debugArray proc
+	xor cx, cx
+	mov si, 0
+	mov bx, 10
+	ciclo:
+		mov al, array_exploding[si]
+		inc al
+		inc si
+		mov es:[bx], al
+	next_column:
+		inc ch
+		cmp ch, max_colunas
+		je next_line
+		add bx, 2
+		jmp ciclo
+	next_line:
+		mov ch, 0
+		add bx, 160
+		sub bx, 16
+		inc cl
+		cmp cl, max_linhas
+		jne ciclo
+		ret
+func_debugArray endp
+
+func_explode proc
+	cursor_at:
+	
+		;Debug
+		mov dl, 0
+		mov dh, 0
+		mov ax, 0
+		mov al, POSy
+		
+		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		call	func_printNum		; imprime POSy
+		mov dl, 1
+		mov dh, 0
+		mov ax, 0
+		mov al, POSx
+		
+		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		call	func_printNum		; imprime POSx
+		
+		
+		;mov ah, POSy
+		;mov al, POSx
+		;mov byte ptr es:[0], ah
+		;mov byte ptr es:[160], al
+		mov	al, 160;Espaços por linha	
+		mov	ah, POSy
+		mul ah
+		mov dx, 0
+		add dl, POSx
+		add dl, POSx ;(2x porque cada célula ocupa 2 bytes, e POSx apenas indica a posição considerando o numero de células)
+		add ax, dx
 		mov bx, ax; BX = AX
 		add bx, 1 ;Para obter a cor
-	get_color_around:
-		mov	al, es:[bx] ;Posição do cursor
-		cmp cx, 0 ;Verificar se o vertical já foi analisado
-		jg horizontal
+		mov ah, es:[bx] ;Posição em cima do cursor
+		mov corCell_now, ah
+		mov posCell_now, bx
+	check_hasRegion:
+		has_top:
+			mov al, es:[bx-160] ;Posição em cima do cursor
+			cmp ah, al
+			je fill_array
+		has_bottom:
+			mov al, es:[bx+160] ;Posição em baixo do cursor
+			cmp ah, al
+			je fill_array
+		has_left:
+			mov al, es:[bx-4] ;Posição à esquerda do cursor
+			cmp ah, al
+			je fill_array
+		has_right:
+			mov al, es:[bx+4] ;Posição à direira do cursor
+			cmp ah, al
+			jne no_explode
+	fill_array:
+		macro_convertPos
+		macro_getEstadoXY
+		cmp dl, 1
+		je no_explode
+		func_setEstadoXY
 		vertical:
+			start_top:
+				mov bx, posCell_now
 			top:
-				inc dl ;Quantidade de espaços com a cor igual à do cursor
-				sub bx, 160 ;Mudar para a linha em cima
-				mov ah, es:[bx] ;Posição em cima do cursor
-				cmp ah, al ;Verificar se a cor do bloco atual é igual ao do cursor
-				je top ;Se sim, repete
-				mov al, 160
-				mov ah, dl 
-				mul ah ;AX = AL * AH (AX = 160*Quant)
-				add bx, ax ; Volta à posição do cursor
+				mov ah, corCell_now ;AH fica com a cor da célula no cursor
+				sub bx, 160 ;Subtrai 160 para subir
+				mov al, es:[bx] ;AL fica com a cor da célula atual
+				cmp ah, al
+				jne start_bottom ;Se as cores forem diferentes passa para o próximo passo
+				macro_convertPos
+				macro_getEstadoXY
+				cmp dl, 1
+				je start_bottom
+				push bx
+				func_setEstadoXY
+				pop bx
+				top_check_left:
+					mov ah, corCell_now
+					mov al, es:[bx-4]
+					cmp ah, al
+					jne top_check_right
+					push bx
+					sub bx, 4
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je top_check_right
+					func_setEstadoXY
+					inc specialCount
+					sub bx, 4
+					push bx
+					add bx, 4
+				top_check_right:
+					mov ah, corCell_now
+					mov al, es:[bx+4]
+					cmp ah, al
+					jne top
+					push bx
+					add bx, 4
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je top
+					func_setEstadoXY
+					inc specialCount
+					add bx, 4
+					push bx
+					sub bx, 4
+				jmp top
+			start_bottom:
+				xor cx, cx
+				mov bx, posCell_now
 			bottom:
-				inc dh ;Quantidade de espaços com a cor igual à do cursor
-				add bx, 160 ;Mudar para a linha em baixo
-				mov ah, es:[bx] ;Posição em baixo do cursor
-				cmp ah, al ;Verificar se a cor do bloco atual é igual ao do cursor
-				je bottom ;Se sim, repete
-				add dl, dh ;DL = DL + DH
-				cmp dl, 3 ;Se DL >= 3, rebenta verticalmente 
-				jge boom_vertical
-				inc cx
-				jmp cursor_at ;Volta ao inicio
+				mov ah, corCell_now
+				add bx, 160
+				je start_left
+				mov al, es:[bx]
+				cmp ah, al
+				jne start_left ;Se as cores forem diferentes passa para o próximo passo
+				macro_convertPos
+				macro_getEstadoXY
+				cmp dl, 1
+				je start_left
+				push bx
+				func_setEstadoXY
+				pop bx
+				bottom_check_left:
+					mov ah, corCell_now
+					mov al, es:[bx-4]
+					cmp ah, al
+					jne bottom_check_right
+					push bx
+					sub bx, 4
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je bottom_check_right
+					func_setEstadoXY
+					inc specialCount
+					sub bx, 4
+					push bx
+					add bx, 4
+				bottom_check_right:
+					mov ah, corCell_now
+					mov al, es:[bx+4]
+					cmp ah, al
+					jne bottom
+					push bx
+					add bx, 4
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je bottom
+					func_setEstadoXY
+					inc specialCount
+					add bx, 4
+					push bx
+					sub bx, 4
+				jmp bottom
 		horizontal:
+			start_left:
+				xor cx, cx
+				mov bx, posCell_now
 			left:
-				inc dl ;Quantidade de espaços com a cor igual à do cursor
-				sub bx, 2 ;Mudar para o bloco atrás
-				mov ah, es:[bx] ;Posição atrás do cursor
-				cmp ah, al ;Verificar se a cor do bloco atual é igual ao do cursor
-				je left ;Se sim, repete
-				mov al, 2
-				mov ah, dl
-				mul ah ;AX = AL * AH (AX = 2*Quant)
-				add bx, ax ; Volta à posição do cursor
+				mov ah, corCell_now
+				sub bx, 4
+				mov al, es:[bx]
+				cmp ah, al
+				jne start_right ;Se as cores forem diferentes passa para o próximo passo
+				macro_convertPos
+				macro_getEstadoXY
+				cmp dl, 1
+				je start_right
+				push bx
+				func_setEstadoXY
+				pop bx
+				left_check_top:
+					mov ah, corCell_now
+					mov al, es:[bx-160]
+					cmp ah, al
+					jne left_check_bottom
+					push bx
+					sub bx, 160
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je left_check_bottom
+					func_setEstadoXY
+					inc specialCount
+					sub bx, 160
+					push bx
+					add bx, 160
+				left_check_bottom:
+					mov ah, corCell_now
+					mov al, es:[bx+160]
+					cmp ah, al
+					jne left
+					push bx
+					add bx, 160
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je left
+					func_setEstadoXY
+					inc specialCount
+					add bx, 160
+					push bx
+					sub bx, 160
+				jmp left
+			start_right:
+				xor cx, cx
+				mov bx, posCell_now
 			right:
-				inc dh
-				add bx, 2 ;Mudar para o bloco à frente
-				mov ah, es:[bx] ;Posição à frente do cursor
-				cmp ah, al ;Verificar se a cor do bloco atual é igual ao do cursor
-				je right ;Se sim, repete
-				add dl, dh ;DL = DL + DH
-				cmp dl, 3;Se DL >= 3, rebenta verticalmente 
-				jge boom_horizontal
-				jmp no_explode
-	boom_vertical:
-	
-	boom_horizontal:
-	
+				mov ah, corCell_now
+				add bx, 4
+				mov al, es:[bx]
+				cmp ah, al
+				jne is_end
+				macro_convertPos
+				macro_getEstadoXY
+				cmp dl, 1
+				je is_end
+				push bx
+				func_setEstadoXY
+				pop bx
+				right_check_top:
+					mov ah, corCell_now
+					mov al, es:[bx-160]
+					cmp ah, al
+					jne right_check_bottom
+					push bx
+					sub bx, 160
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je right_check_bottom
+					func_setEstadoXY
+					inc specialCount
+					sub bx, 160
+					push bx
+					add bx, 160
+				right_check_bottom:
+					mov ah, corCell_now
+					mov al, es:[bx+160]
+					cmp ah, al
+					jne right
+					push bx
+					add bx, 160
+					macro_convertPos
+					macro_getEstadoXY
+					pop bx
+					cmp dl, 1
+					je right
+					func_setEstadoXY
+					inc specialCount
+					add bx, 160
+					push bx
+					sub bx, 160
+				jmp right
+	is_end:
+		mov al, specialCount
+		cmp al, 1
+		jl boom
+		dec specialCount
+		pop bx
+		mov posCell_now, bx
+		jmp vertical
+	boom:
+		call func_debugArray
+		call func_explodeByArray
+		
+		mov dl, 10
+		mov dh, 0
+		mov ax, 0
+		mov al, pontuacao
+		
+		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		call	func_printNum		; imprime POSx
+		
+		call func_atualizaTabela
+		call func_restartArray
+		call func_debugArray
+		call func_hasPlays
 	no_explode:
 		ret
 func_explode endp
-@
 ;|||||||||||||||||||| (end) Procs |||||||||||||||||||| 
 ;|||||||||||||||||||| (start) Cursor |||||||||||||||||||| 
 ;########################################################################
@@ -228,7 +733,6 @@ goto_xy	macro		POSx,POSy
 		mov		dh,POSy
 		int		10h
 endm
-
 ;########################################################################
 ;ROTINA PARA APAGAR ECRAN
 
@@ -249,8 +753,7 @@ func_limpaEcran	endp
 ;########################################################################
 ; LE UMA TECLA	
 
-func_leTecla	PROC
-
+func_leTecla PROC
 		mov		ah,08h
 		int		21h
 		mov		ah,0
@@ -264,16 +767,8 @@ func_leTecla	endp
 ;########################################################################
 
 func_moveCursor  proc
-		;;PROG STARTS HERE
-		mov		ax, dseg
-		mov		ds,ax
-		;;||||||||||||||||
-		
-		mov		ax,0B800h
-		mov		es,ax
-	
 		call func_limpaEcran
-		call func_readFile
+		;call func_readFile
 		call func_drawTabuleiro
 		call func_hasPlays
 		
@@ -294,7 +789,13 @@ func_moveCursor  proc
 		dec		POSx
 	
 
-CICLO:		goto_xy	POSxa,POSya	; Vai para a posição anterior do cursor
+CICLO:		
+		mov ah, environment
+		cmp ah, 1
+		jne skip
+			call func_drawTimer
+		skip:
+		goto_xy	POSxa,POSya	; Vai para a posição anterior do cursor
 		mov		ah, 02h
 		mov		dl, Car	; Repoe Caracter guardado 
 		int		21H	
@@ -353,13 +854,14 @@ IMPRIME:	mov		ah, 02h
 		mov		al, POSy	; Guarda a posição do cursor
 		mov 		POSya, al
 		
-LER_SETA:	call 		func_leTecla
+LER_SETA:	
+		call 		func_leTecla
 		cmp		ah, 1
-		je		ESTEND
+			je		ESTEND
 		cmp 		al, 27	; ESCAPE
-		je		fim
-		;cmp 		al, 13	; ENTER
-		;je		func_explode
+			je		fim
+		cmp 		al, 13	; ENTER
+			je		explode
 		jmp		LER_SETA
 		
 ESTEND:		
@@ -400,12 +902,16 @@ DIREITA:
 		inc		POSx		;Direita
 		
 		jmp		CICLO
-
+explode:
+	call func_explode
+	jmp CICLO
 fim:
 		call func_makeFile
 		call func_limpaEcran
-		mov		ah,4CH
-		INT		21H
+		call func_drawMenu
+		mov timer, 60
+		mov environment, 0
+		ret
 func_moveCursor	endp
 ;|||||||||||||||||||| (end) Cursor |||||||||||||||||||| 
 ;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
@@ -552,20 +1058,27 @@ ciclo1:
 		mov 	dh,	tab_car	; vai imprimir o tab_caracter "SAPCE"
 		mov	es:[bx],dh	;
 	
-novatab_cor:	
+novatab_cor:
+		mov 	dh,	tab_car	; vai imprimir o tab_caracter "SAPCE"
+		call func_getRandom
+		pop	ax
+		and al,01010101b
+		cmp	al, 01010101b
+		jne get_color
+		mov dh, 1
+		
+		get_color:
 		call	func_getRandom	; Calcula próximo aleatório que é colocado na pinha 
 		pop	ax ; 		; Vai bustab_car 'a pilha o número aleatório
 		and 	al,01110000b	; posição do ecran com tab_cor de fundo aleatório e tab_caracter a preto
 		cmp	al, 0		; Se o fundo de ecran é preto
 		je	novatab_cor		; vai bustab_car outra tab_cor 
 
-		mov 	dh,	   tab_car	; Repete mais uma vez porque cada peça do tabuleiro ocupa dois tab_carecteres de ecran
 		mov	es:[bx],   dh		
 		mov	es:[bx+1], al	; Coloca as tab_características de tab_cor da posição atual 
 		inc	bx		
 		inc	bx		; próxima posição e ecran dois bytes à frente 
-
-		mov 	dh,	   tab_car	; Repete mais uma vez porque cada peça do tabuleiro ocupa dois tab_carecteres de ecran
+		
 		mov	es:[bx],   dh
 		mov	es:[bx+1], al
 		inc	bx
@@ -683,11 +1196,6 @@ prox_dig:
 	ret	4 ;limpa parametros (4 bytes) colocados na pilha
 func_printNum endp
 
-
-
-
-
-
 ;recebe em di o número de milisegundos a esperar
 func_makeDelay proc
 	pushf
@@ -727,6 +1235,280 @@ naoajusta:
 	popf
 	ret
 func_makeDelay endp
+
+func_getTempo PROC	
+ 
+		PUSH DX
+	
+		PUSHF
+		
+		MOV AH, 2CH             ; Buscar a hORAS
+		INT 21H                 
+		
+		XOR AX,AX
+		MOV AL, DH              ; segundos para al
+		mov Segundos, AX		; guarda segundos na variavel correspondente
+
+		POPF
+		POP DX
+ 		RET 
+func_getTempo    ENDP 
+
+func_drawTimer PROC
+
+		PUSHF
+		PUSH AX
+		PUSH BX
+		PUSH CX
+		PUSH DX		
+
+		CALL 	func_getTempo 				; Horas MINUTOS e segundos do Sistema
+		
+		MOV		AX, Segundos
+		cmp		AX, Old_seg			; VErifica se os segundos mudaram desde a ultima leitura
+		je		fim_horas			; Se a hora não mudou desde a última leitura sai.
+		mov		Old_seg, AX			; Se segundos são diferentes actualiza informação do tempo 
+		
+		MOV AX, Timer
+		DEC AX
+		MOV Timer, AX
+		MOV bl, 10
+		div 	bl
+		add 	al, 30h				; Caracter Correspondente às dezenas
+		add		ah,	30h				; Caracter Correspondente às unidades
+		;MOV 	STR12[0],al			; 
+		;MOV 	STR12[1],ah
+		;MOV 	STR12[2],'s'		
+		;MOV 	STR12[3],'$'
+		;GOTO_XY	20,10
+		;macro_puts	STR12 
+		MOV byte ptr es:[40], al
+		MOV byte ptr es:[42], ah
+		MOV byte ptr es:[44], 's'
+
+				
+        
+						
+fim_horas:
+		
+		
+		
+		goto_xy	POSx,POSy			; Volta a colocar o cursor onde estava antes de actualizar as horas
+		
+		POPF
+		POP DX		
+		POP CX
+		POP BX
+		POP AX
+		RET		
+			
+func_drawTimer ENDP
+
+menu_switch_opt proc
+
+	mov al, selected_opt
+	cmp al, 1
+	jne opt2
+	
+	opt1:
+		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+		mov		ah, 02h		; IMPRIME caracter da posição no canto
+		mov		dl, '1'
+		int		21H	
+		mov environment, 1
+		call func_moveCursor
+		call func_selectOpt
+	
+	opt2:
+		cmp al, 2
+		jne opt3
+		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+		mov		ah, 02h		; IMPRIME caracter da posição no canto
+		mov		dl, '2'
+		int		21H
+		call func_selectOpt
+	
+	opt3:
+		cmp al, 3
+		jne fim_menu_switch_opt
+		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+		mov		ah, 02h		; IMPRIME caracter da posição no canto
+		mov		dl, '3'
+		int		21H	
+		call func_selectOpt
+		;call func_configurarGrelha
+		
+	fim_menu_switch_opt:
+		call func_limpaEcran
+		mov ah,4CH
+		int	21H
+
+menu_switch_opt endp
+
+func_selectOpt proc
+
+	;goto_xy		menu_POSx,menu_POSy	; Vai para nova possição
+	;mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
+	;mov			bh,0		; numero da página
+	;int			10h	
+	;mov		menu_Car, al	; Guarda o Caracter que está na posição do Cursor
+	;mov		Cor, ah	; Guarda a cor que está na posição do Cursor	
+
+	
+	;inc			menu_POSx
+	;goto_xy		menu_POSx,menu_POSy	; Vai para nova possição2
+	;mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
+	;mov			bh,0		; numero da página
+	;int			10h
+	;mov		menu_Car2, al	; Guarda o Caracter que está na posição do Cursor
+	;mov		Cor2, ah	; Guarda a cor que está na posição do Cursor
+	;dec			menu_POSx
+
+
+menu_Ciclo:		
+
+	dec menu_POSxa
+	goto_xy	menu_POSxa,menu_POSya	; Vai para a posição anterior do cursor
+	mov		ah, 02h
+	mov		dl, menu_Car	; Repoe menu_Caracter guardado 
+	int		21H	
+	inc menu_POSxa
+
+	inc		menu_POSxa
+	goto_xy		menu_POSxa,menu_POSya	
+	mov		ah, 02h
+	mov		dl, menu_Car2	; Repoe menu_Caracter2 guardado 
+	int		21H	
+	dec 		menu_POSxa
+	
+	goto_xy	menu_POSx,menu_POSy	; Vai para nova possição
+	mov 		ah, 08h
+	mov		bh,0		; numero da página
+	;int		10h
+	mov		menu_Car, al	; Guarda o Caracter que está na posição do Cursor
+	mov		Cor, ah	; Guarda a cor que está na posição do Cursor		
+	
+	inc		menu_POSx
+	goto_xy		menu_POSx,menu_POSy	; Vai para nova possição
+	mov 		ah, 08h
+	mov		bh,0		; numero da página
+	;int		10h
+	mov		menu_Car2, al	; Guarda o Caracter2 que está na posição do Cursor2
+	mov		Cor2, ah	; Guarda a cor que está na posição do Cursor2		
+	dec		menu_POSx
+	
+	;goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+	;mov		ah, 02h		; IMPRIME caracter da posição no canto
+	;mov		dl, menu_Car	
+	;int		21H
+
+	;goto_xy		78,0		; Mostra o caractr2 que estava na posição do AVATAR
+	;mov		ah, 02h		; IMPRIME caracter2 da posição no canto
+	;mov		dl, menu_Car2	
+	;int		21H		
+		
+	
+
+	goto_xy		menu_POSx,menu_POSy	; Vai para posição do cursor
+	
+	menu_imprime:
+			
+			dec menu_POSx
+			goto_xy		menu_POSx,menu_POSy
+			mov		ah, 02h
+			mov		dl, '('	; Coloca AVATAR1
+			int		21H
+			inc menu_POSx
+	
+			inc		menu_POSx
+			goto_xy		menu_POSx,menu_POSy		
+			mov		ah, 02h
+			mov		dl, ')'	; Coloca AVATAR2
+			int		21H	
+			dec		menu_POSx
+			
+			goto_xy		menu_POSx,menu_POSy	; Vai para posição do cursor
+			
+			mov		al, menu_POSx	; Guarda a posição do cursor
+			mov		menu_POSxa, al
+			mov		al, menu_POSy	; Guarda a posição do cursor
+			mov 		menu_POSya, al
+			
+	menu_LerSeta:	
+			call 		func_leTecla
+			cmp		ah, 1
+			je		menu_Estend
+			;cmp 		al, 27	; ESCAPE
+			;je		fim_selectedOpt
+			cmp 	al, 13	; ENTER
+			je		menu_switch_opt
+			jmp		menu_LerSeta
+			
+	menu_Estend:		
+			cmp 		al,48h
+			jne		menu_Baixo
+			;if (menu_POSy <= 1){ break; }
+			cmp 	menu_POSy, 1
+			jle 	menu_Ciclo
+			dec selected_opt
+			dec		menu_POSy		;cima
+			jmp		menu_Ciclo
+
+	menu_Baixo:		
+			cmp		al,50h
+			jne		menu_LerSeta
+			;if (menu_POSy >= 4){ break; }
+			cmp 	menu_POSy, 4
+			jge 	menu_Ciclo
+			inc selected_opt
+			inc 	menu_POSy		;Baixo
+			jmp		menu_Ciclo
+
+			
+	fim_selectedOpt:
+		ret
+		;mov ah,4CH
+		;int	21H
+
+func_selectOpt endp
+
+func_drawMenu proc
+	goto_xy 1,1
+	macro_puts str_opt1
+	goto_xy 2,1
+	macro_puts str_jogar
+	
+	goto_xy 1,2
+	macro_puts str_opt2
+	goto_xy 2,2
+	macro_puts str_pontuacoes
+	
+	goto_xy 1,3
+	macro_puts str_opt3
+	goto_xy 2,3
+	macro_puts str_grelha
+	
+	goto_xy 1,4
+	macro_puts str_opt4
+	goto_xy 2,4
+	macro_puts str_sair
+	ret
+func_drawMenu endp
+
+func_main proc
+	;;PROG STARTS HERE
+	mov		ax, dseg
+	mov		ds,ax
+	;;||||||||||||||||
+	
+	mov		ax,0B800h
+	mov		es,ax
+	call func_limpaEcran
+	call func_drawMenu
+	call func_selectOpt
+	
+func_main endp
+
 ;|||||||||||||||||||| (end) Tabuleiro |||||||||||||||||||| 
 Cseg	ends
-end	func_moveCursor
+end	func_main
