@@ -17,7 +17,7 @@ dseg	segment para public 'data'
 	;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
 	fname	db	'grelha2.txt',0
 	fhandle dw	0
-	buffer	db 132 dup(0)
+	buffer	db 106 dup(0)
 			
 	str_cor	db	"     $"
 	lala		db	10
@@ -400,7 +400,7 @@ escreve:
     	mov		ah, 40h				; indica que é para escrever
     	
 		lea		dx, buffer			; DX aponta para a infromação a escrever
-    	mov		cx, 132				; CX fica com o numero de bytes a escrever
+    	mov		cx, 107				; CX fica com o numero de bytes a escrever
 		int		21h					; Chama a rotina de escrita
 		jnc		close				; Se não existir erro na escrita fecha o ficheiro
 	

@@ -75,7 +75,7 @@ DSEG    SEGMENT PARA PUBLIC 'DATA'
 		max_colunas 	db  9
 		cell			dw  1340
 		tab_car			db	' '
-		buffer			db 	132 dup(0)
+		buffer			db 	106 dup(0)
 		
 		;Configuracao
 		str_grelha_0	db	"Pressione ENTER para alterar a cor:$"
@@ -87,12 +87,50 @@ DSEG    SEGMENT PARA PUBLIC 'DATA'
 		str_grelha_6	db	"Branco$"
 		str_grelha_7	db	"Azul escuro$"
 		bloco_pos		dw	1340
-
+		str_num db 5 dup(?),'$'
+		
 DSEG    ENDS
 
 CSEG    SEGMENT PARA PUBLIC 'CODE'
 
 ASSUME  CS:CSEG, DS:DSEG, SS:PILHA
+
+func_printNum proc near
+	push	bp
+	mov	bp,sp
+	push	ax
+	push	bx
+	push	cx
+	push	dx
+	push	di
+	mov	ax,[bp+4] ;param3
+	lea	di,[str_num+5]
+	mov	cx,5
+prox_dig:
+	xor	dx,dx
+	mov	bx,10
+	div	bx
+	add	dl,'0' ; dh e' sempre 0
+	dec	di
+	mov	[di],dl
+	loop	prox_dig
+
+	mov	ah,02h
+	mov	bh,00h
+	mov	dl,[bp+7] ;param1
+	mov	dh,[bp+6] ;param2
+	int	10h
+	mov	dx,di
+	mov	ah,09h
+	int	21h
+	pop	di
+	pop	dx
+	pop	cx
+	pop	bx
+	pop	ax
+	pop	bp
+	ret	4 ;limpa parametros (4 bytes) colocados na pilha
+func_printNum endp
 
 func_makeFile proc
 		;MOV		AX, DADOS
@@ -115,7 +153,7 @@ escreve:
     	mov		ah, 40h				; indica que é para escrever
     	
 		lea		dx, buffer			; DX aponta para a infromação a escrever
-    	mov		cx, 132				; CX fica com o numero de bytes a escrever
+    	mov		cx, 107				; CX fica com o numero de bytes a escrever
 		int		21h					; Chama a rotina de escrita
 		jnc		close				; Se não existir erro na escrita fecha o ficheiro
 	
@@ -333,8 +371,18 @@ func_editColor proc
 		
 	
 	fim:
-		ret
-		;call func_moveCursor
+	
+		mov dl, 20
+		mov dh, 0
+		mov ah, 0
+		mov al, ch
+		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		call	func_printNum		; imprime POSy
+		
+		
+		;ret
+		call func_moveCursor
 	
 	
 	
@@ -452,6 +500,7 @@ LER_SETA:
 			mov bx, bloco_pos
 			mov al, 00064 
 			cmp es:[bx+1], al
+			
 			jne pink
 			
 			red:
@@ -460,6 +509,8 @@ LER_SETA:
 				
 			pink:
 				mov al, es:[bx+1]
+
+
 				cmp al, 00080
 				jne lblue
 				mov ch, 1
@@ -497,22 +548,20 @@ LER_SETA:
 				mov ch, 6
 				jmp edit_color
 			
-			pop ax
-			pop bx
-			
 			edit_color:
 				inc ch
 				cmp ch, 6
 				jg  reset_counter
+				jmp func_editColor
 				
 				reset_counter:
 					mov ch, 0
-					
-				
-				jmp func_editColor
+					jmp func_editColor
 				;ret
+				
+			pop ax
+			pop bx
 
-		
 		jmp		LER_SETA
 		
 ESTEND:		

@@ -20,7 +20,7 @@ dseg	segment para public 'data'
 	;|||||||||||||||||||| (start) CriarFich ||||||||||||||||||||
 	fname	db	'GRELHA2.txt',0
 	fhandle dw	0
-	buffer			db 	106 dup(0)
+	buffer			db 	132 dup(0)
 	msgErrorCreate	db	"Ocorreu um erro na criacao do ficheiro!$"
 	msgErrorWrite	db	"Ocorreu um erro na escrita para ficheiro!$"
 	msgErrorClose	db	"Ocorreu um erro no fecho do ficheiro!$"
@@ -188,6 +188,141 @@ macro_puts MACRO STR
 ENDM
 ; DEVOLVE AX
 
+
+
+
+
+;----------------------------------------(start) func_colorsToBuffer ----------------------------------------
+;Params	: 	buffer, max_colunas, max_linhas
+;Func	:	Percorre todas as células da grelha e escreve, em formato de grelha(9x6), as cores no buffer para escrever no ficheiro
+
+;AL 	: 	Cor da célula
+;AH		: 	Cor da célula convertida ou \n. Argumento para escrever no buffer
+;BX 	:	Endereços da mem. video
+;CH 	: 	Contador de células percorridas
+;CH 	: 	Contador de linhas percorridas
+
+func_colorsToBuffer proc
+
+	xor ax, ax
+	xor bx, bx 
+	xor cx, cx
+	xor si, si
+	xor dx, dx
+
+	mov bx, 1340; Vai para a posição absoluta da 1ª celula da grelha (linha 0, coluna 0)
+	
+	cycle:
+	
+		mov	al, es:[bx+1]; Guarda a cor da célula
+		mov byte ptr es:[bx+2], '1'
+		
+		;call func_makeDelay
+
+		;swtich(al):
+		;	case 00064: ah = 2 (red)
+		;	case 00080: ah = 3 (pink)
+		;	case 00048: ah = 4 (lblue)
+		;	case 00032: ah = 5 (green)
+		;	case 00096: ah = 6 (orange)
+		;	case 00112: ah = 7 (white)
+		;	default : (00016) ah = 8 (blue)
+			
+			
+		convert_color:
+			cmp al, 00064  ; AL é red?
+			jne pink
+		
+			red:
+				mov ah, 2
+				jmp addTobuffer
+				
+			pink:
+				cmp al, 00080 
+				jne lblue
+				mov ah, 3
+				jmp addTobuffer
+				
+			lblue:
+				cmp al, 00048 
+				jne green
+				mov ah, 4
+				jmp addTobuffer
+			
+			green:
+				cmp al, 00032 
+				jne orange
+				mov ah, 5
+				jmp addTobuffer
+			
+			orange:
+				cmp al, 00096 
+				jne white
+				mov ah, 6
+				jmp addTobuffer
+			
+			white:
+				cmp al, 00112 
+				jne blue
+				mov ah, 7
+				jmp addTobuffer
+				
+			blue: ;00016
+				mov ah, 8
+				jmp addTobuffer
+			
+		
+		addTobuffer:;Adiciona uma cor e um espaço nas respetivas posicoes no buffer
+	
+			add ah, '0';Converte numero para string
+			MOV buffer[si], ah
+			mov byte ptr es:[bx+2], ah
+			
+			inc si; Próxima posição para escrever um espaço
+			mov ah, 32; space
+			mov buffer[si], ah;Entre cada cor escreve um espaço
+			
+			inc si;Após escrever o espaço vai para próxima posição para escrever a próxima cor
+			
+			
+			jmp next_cell
+		
+		
+
+		next_cell:;Le a celula seguinte
+		
+		add bx, 4 ;Anda para a celula da direita
+		inc ch; Nº de células percorridas
+		cmp ch, max_colunas
+		jge next_line; Se já leu o tamanho máximo de celulas que pode ler muda de linha
+		jmp cycle; Se não le a próxima celula
+		
+		next_line:;Salta para a 1ª celula de linha seguinte
+		
+		;inc si
+		;mov ah, 13; carriage return
+		;mov buffer[si], ah; carriage return no fim da linha
+		
+		;inc si
+		;mov ah, 10; new line
+		;mov buffer[si], ah; entre cada linha vai haver um \n
+		
+		;inc si
+		
+		inc cl; Nº de linhas percorridas
+		cmp cl, max_linhas
+		jge fim; Se já leu o tamanho máximo de linhas que pode ler, termina
+		add bx, 160; Muda de linha, mas fica na ultima coluna
+		sub bx, 36; Vai para a 1ª coluna da nova linha
+		mov ch, 0; Renicia a contagem das células pois estamos numa nova linha
+		jmp cycle; Vai ler a próxima célula (1ª celula da linha nova)
+		
+		fim:
+			ret
+		
+func_colorsToBuffer endp
+;----------------------------------------(end) func_colorsToBuffer ----------------------------------------
+
 ;----------------------------------------(start) func_editColor ----------------------------------------
 func_editColor proc
 
@@ -256,380 +391,12 @@ func_editColor proc
 		
 	
 	fim:
-		;call func_makeDelay
-		;pop ax
-		;pop bx
-		;ret
-		;call func_configuracaoCursor
+		ret
+		;call func_moveCursor
 	
 func_editColor endp
 
 ;----------------------------------------(end) func_editColor ----------------------------------------
-
-
-;----------------------------------------(start) func_configuracaoCursor ----------------------------------------
-
-func_configuracaoCursor  proc
-	
-		xor cx, cx
-
-
-		;;PROG STARTS HERE
-		mov		ax, dseg
-		mov		ds,ax
-		;;||||||||||||||||
-		
-		mov		ax,0B800h
-		mov		es,ax
-		
-		goto_xy		POSx,POSy	; Vai para nova possição
-		mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
-		mov		bh,0		; numero da página
-		int		10h			
-		mov		Car, al	; Guarda o Caracter que está na posição do Cursor
-		mov		Cor, ah	; Guarda a cor que está na posição do Cursor	
-		
-		inc		POSx
-		goto_xy		POSx,POSy	; Vai para nova possição2
-		mov 		ah, 08h		; Guarda o Caracter que está na posição do Cursor
-		mov		bh,0		; numero da página
-		int		10h			
-		mov		Car2, al	; Guarda o Caracter que está na posição do Cursor
-		mov		Cor2, ah	; Guarda a cor que está na posição do Cursor	
-		dec		POSx
-	
-
-CICLO:		goto_xy	POSxa,POSya	; Vai para a posição anterior do cursor
-		mov		ah, 02h
-		mov		dl, Car	; Repoe Caracter guardado 
-		int		21H	
-
-		inc		POSxa
-		goto_xy		POSxa,POSya	
-		mov		ah, 02h
-		mov		dl, Car2	; Repoe Caracter2 guardado 
-		int		21H	
-		dec 		POSxa
-		
-		goto_xy	POSx,POSy	; Vai para nova possição
-		mov 		ah, 08h
-		mov		bh,0		; numero da página
-		int		10h		
-		mov		Car, al	; Guarda o Caracter que está na posição do Cursor
-		mov		Cor, ah	; Guarda a cor que está na posição do Cursor
-		
-		inc		POSx
-		goto_xy		POSx,POSy	; Vai para nova possição
-		mov 		ah, 08h
-		mov		bh,0		; numero da página
-		int		10h		
-		mov		Car2, al	; Guarda o Caracter2 que está na posição do Cursor2
-		mov		Cor2, ah	; Guarda a cor que está na posição do Cursor2
-		dec		POSx
-		
-		
-		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-		mov		ah, 02h		; IMPRIME caracter da posição no canto
-		mov		dl, Car	
-		int		21H			
-		
-		goto_xy		78,0		; Mostra o caractr2 que estava na posição do AVATAR
-		mov		ah, 02h		; IMPRIME caracter2 da posição no canto
-		mov		dl, Car2	
-		int		21H			
-		
-	
-		goto_xy		POSx,POSy	; Vai para posição do cursor
-IMPRIME:	mov		ah, 02h
-		mov		dl, '('	; Coloca AVATAR1
-		int		21H
-		
-		inc		POSx
-		goto_xy		POSx,POSy		
-		mov		ah, 02h
-		mov		dl, ')'	; Coloca AVATAR2
-		int		21H	
-		dec		POSx
-		
-		goto_xy		POSx,POSy	; Vai para posição do cursor
-		
-		mov		al, POSx	; Guarda a posição do cursor
-		mov		POSxa, al
-		mov		al, POSy	; Guarda a posição do cursor
-		mov 		POSya, al
-		
-LER_SETA:	
-		call 		func_leTecla
-		cmp		ah, 1
-		je		ESTEND
-		cmp 		al, 27	; ESCAPE
-		je		fim
-		
-		cmp 		al, 13	; ENTER
-		je		swtich_color
-		
-		push ax
-		push bx
-		
-		swtich_color:
-			
-			xor ax, ax
-			
-			mov bx, bloco_pos
-			mov al, 00064 
-			cmp es:[bx+1], al
-			
-			jne pink
-			
-			red:
-				mov ch, 0
-				jmp edit_color
-				
-			pink:
-				mov al, es:[bx+1]
-
-
-				cmp al, 00080
-				jne lblue
-				mov ch, 1
-				jmp edit_color
-				
-			lblue:
-				mov al, es:[bx+1]
-				cmp al, 00048
-				jne green
-				mov ch, 2
-				jmp edit_color
-			
-			green:
-				mov al, es:[bx+1]
-				cmp al, 00032
-				jne orange
-				mov ch, 3
-				jmp edit_color
-			
-			orange:
-				mov al, es:[bx+1]
-				cmp al, 00096
-				jne white
-				mov ch, 4
-				jmp edit_color
-			
-			white:
-				mov al, es:[bx+1]
-				cmp al, 00112
-				jne blue
-				mov ch, 5
-				jmp edit_color
-				
-			blue: ;00016
-				mov ch, 6
-				jmp edit_color
-			
-			edit_color:
-				inc ch
-				cmp ch, 6
-				jg  reset_counter
-				jmp func_editColor
-				
-				reset_counter:
-					mov ch, 0
-					jmp func_editColor
-				;ret
-				
-			pop ax
-			pop bx
-
-		jmp		LER_SETA
-		
-ESTEND:		
-		cmp 		al,48h
-		jne		BAIXO
-		;if (POSy <= 9){ break; }
-			cmp 	POSy, 8
-			jle 		CICLO
-		dec		POSy		;cima
-		sub bloco_pos, 160
-		jmp		CICLO
-
-BAIXO:		cmp		al,50h
-		jne		ESQUERDA
-		;if (POSy >= 14){ break; }
-			cmp 	POSy, 13
-			jge 		CICLO
-		inc 	POSy		;Baixo
-		add bloco_pos, 160
-		jmp		CICLO
-
-ESQUERDA:
-		cmp		al,4Bh
-		jne		DIREITA
-		;if (POSx <= 31){ break; }
-			cmp 	POSx, 30
-			jle 		CICLO
-		dec		POSx		;Esquerda
-		dec		POSx		;Esquerda
-		sub bloco_pos, 4
-		jmp		CICLO
-
-DIREITA:
-		cmp		al,4Dh
-		jne		LER_SETA 
-		;if (POSx >= 48){ break; }
-			cmp 	POSx, 46
-			jge 		CICLO
-		inc		POSx		;Direita
-		inc		POSx		;Direita
-		add bloco_pos, 4
-		jmp		CICLO
-		
-
-
-fim:
-
-		call func_colorsToBuffer
-		call func_makeFile
-		call func_drawMenu
-		ret
-		;call func_drawMenu
-		;call func_selectOpt
-		;mov		ah,4CH
-		;INT		21H
-		
-func_configuracaoCursor	endp
-
-;----------------------------------------(end) func_configuracaoCursor ----------------------------------------
-
-;----------------------------------------(start) func_colorsToBuffer ----------------------------------------
-;Params	: 	buffer, max_colunas, max_linhas
-;Func	:	Percorre todas as células da grelha e escreve, em formato de grelha(9x6), as cores no buffer para escrever no ficheiro
-
-;AL 	: 	Cor da célula
-;AH		: 	Cor da célula convertida ou \n. Argumento para escrever no buffer
-;BX 	:	Endereços da mem. video
-;CH 	: 	Contador de células percorridas
-;CH 	: 	Contador de linhas percorridas
-
-func_colorsToBuffer proc
-
-	xor ax, ax
-	xor bx, bx 
-	xor cx, cx
-	xor si, si
-	xor dx, dx
-
-	mov bx, 1340; Vai para a posição absoluta da 1ª celula da grelha (linha 0, coluna 0)
-	
-	cycle:
-	
-		mov	al, es:[bx+1]; Guarda a cor da célula
-		;mov byte ptr es:[bx+2], '1'
-		
-		;call func_makeDelay
-
-		;swtich(al):
-		;	case 00064: ah = 2 (red)
-		;	case 00080: ah = 3 (pink)
-		;	case 00048: ah = 4 (lblue)
-		;	case 00032: ah = 5 (green)
-		;	case 00096: ah = 6 (orange)
-		;	case 00112: ah = 7 (white)
-		;	default : (00016) ah = 8 (blue)
-			
-			
-		convert_color:
-			cmp al, 00064  ; AL é red?
-			jne pink
-		
-			red:
-				mov ah, 2
-				jmp addTobuffer
-				
-			pink:
-				cmp al, 00080 
-				jne lblue
-				mov ah, 3
-				jmp addTobuffer
-				
-			lblue:
-				cmp al, 00048 
-				jne green
-				mov ah, 4
-				jmp addTobuffer
-			
-			green:
-				cmp al, 00032 
-				jne orange
-				mov ah, 5
-				jmp addTobuffer
-			
-			orange:
-				cmp al, 00096 
-				jne white
-				mov ah, 6
-				jmp addTobuffer
-			
-			white:
-				cmp al, 00112 
-				jne blue
-				mov ah, 7
-				jmp addTobuffer
-				
-			blue: ;00016
-				mov ah, 8
-				jmp addTobuffer
-			
-		
-		addTobuffer:;Adiciona uma cor e um espaço nas respetivas posicoes no buffer
-	
-			add ah, '0';Converte numero para string
-			MOV buffer[si], ah
-			;mov byte ptr es:[bx+2], ah
-			
-			inc si; Próxima posição para escrever um espaço
-			mov ah, 32; space
-			mov buffer[si], ah;Entre cada cor escreve um espaço
-			
-			inc si;Após escrever o espaço vai para próxima posição para escrever a próxima cor
-			
-			
-			jmp next_cell
-		
-		
-
-		next_cell:;Le a celula seguinte
-		
-		add bx, 4 ;Anda para a celula da direita
-		inc ch; Nº de células percorridas
-		cmp ch, max_colunas
-		jge next_line; Se já leu o tamanho máximo de celulas que pode ler muda de linha
-		jmp cycle; Se não le a próxima celula
-		
-		next_line:;Salta para a 1ª celula de linha seguinte
-		
-		;inc si
-		;mov ah, 13; carriage return
-		;mov buffer[si], ah; carriage return no fim da linha
-		
-		;inc si
-		;mov ah, 10; new line
-		;mov buffer[si], ah; entre cada linha vai haver um \n
-		
-		;inc si
-		
-		inc cl; Nº de linhas percorridas
-		cmp cl, max_linhas
-		jge fim; Se já leu o tamanho máximo de linhas que pode ler, termina
-		add bx, 160; Muda de linha, mas fica na ultima coluna
-		sub bx, 36; Vai para a 1ª coluna da nova linha
-		mov ch, 0; Renicia a contagem das células pois estamos numa nova linha
-		jmp cycle; Vai ler a próxima célula (1ª celula da linha nova)
-		
-		fim:
-			ret
-		
-func_colorsToBuffer endp
-;----------------------------------------(end) func_colorsToBuffer ----------------------------------------
 
 ;----------------------------------------(start) func_configurarGrelha----------------------------------------
 func_configurarGrelha proc
@@ -861,19 +628,238 @@ func_configurarGrelha proc
 	
 
 	fim:
-		mov cell, 1340
-		mov cell_counter, 0
-		mov line_counter, 0
+		;ret
+		call func_limpaEcran
 		call func_drawMenu
-		call func_selectOpt
-		ret
-		;call func_configurarGrelha
-		;mov ah,4CH
-		;int	21H
+		mov environment, 0
 		
 
 func_configurarGrelha endp
 ;----------------------------------------(end) func_configurarGrelha----------------------------------------
+
+;----------------------------------------(start) func_configuracaoCursor ----------------------------------------
+
+func_configuracaoCursor  proc
+	
+		xor cx, cx
+		
+		mov		ax,0B800h
+		mov		es,ax
+		
+		goto_xy		POSx,POSy	; Vai para nova possição
+		mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
+		mov		bh,0		; numero da página
+		int		10h			
+		mov		Car, al	; Guarda o Caracter que está na posição do Cursor
+		mov		Cor, ah	; Guarda a cor que está na posição do Cursor	
+		
+		inc		POSx
+		goto_xy		POSx,POSy	; Vai para nova possição2
+		mov 		ah, 08h		; Guarda o Caracter que está na posição do Cursor
+		mov		bh,0		; numero da página
+		int		10h			
+		mov		Car2, al	; Guarda o Caracter que está na posição do Cursor
+		mov		Cor2, ah	; Guarda a cor que está na posição do Cursor	
+		dec		POSx
+	
+
+CICLO:		goto_xy	POSxa,POSya	; Vai para a posição anterior do cursor
+		mov		ah, 02h
+		mov		dl, Car	; Repoe Caracter guardado 
+		int		21H	
+
+		inc		POSxa
+		goto_xy		POSxa,POSya	
+		mov		ah, 02h
+		mov		dl, Car2	; Repoe Caracter2 guardado 
+		int		21H	
+		dec 		POSxa
+		
+		goto_xy	POSx,POSy	; Vai para nova possição
+		mov 		ah, 08h
+		mov		bh,0		; numero da página
+		int		10h		
+		mov		Car, al	; Guarda o Caracter que está na posição do Cursor
+		mov		Cor, ah	; Guarda a cor que está na posição do Cursor
+		
+		inc		POSx
+		goto_xy		POSx,POSy	; Vai para nova possição
+		mov 		ah, 08h
+		mov		bh,0		; numero da página
+		int		10h		
+		mov		Car2, al	; Guarda o Caracter2 que está na posição do Cursor2
+		mov		Cor2, ah	; Guarda a cor que está na posição do Cursor2
+		dec		POSx
+		
+		
+		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
+		mov		ah, 02h		; IMPRIME caracter da posição no canto
+		mov		dl, Car	
+		int		21H			
+		
+		goto_xy		78,0		; Mostra o caractr2 que estava na posição do AVATAR
+		mov		ah, 02h		; IMPRIME caracter2 da posição no canto
+		mov		dl, Car2	
+		int		21H			
+		
+	
+		goto_xy		POSx,POSy	; Vai para posição do cursor
+IMPRIME:	mov		ah, 02h
+		mov		dl, '('	; Coloca AVATAR1
+		int		21H
+		
+		inc		POSx
+		goto_xy		POSx,POSy		
+		mov		ah, 02h
+		mov		dl, ')'	; Coloca AVATAR2
+		int		21H	
+		dec		POSx
+		
+		goto_xy		POSx,POSy	; Vai para posição do cursor
+		
+		mov		al, POSx	; Guarda a posição do cursor
+		mov		POSxa, al
+		mov		al, POSy	; Guarda a posição do cursor
+		mov 		POSya, al
+		
+LER_SETA:	
+		call 		func_leTecla
+		cmp		ah, 1
+		je		ESTEND
+		cmp 		al, 27	; ESCAPE
+		je		fim
+		
+		cmp 		al, 13	; ENTER
+		je		swtich_color
+		
+		push ax
+		push bx
+		
+		swtich_color:
+			
+			xor ax, ax
+			
+			mov bx, bloco_pos
+			mov al, 00064 
+			cmp es:[bx+1], al
+			jne pink
+			
+			red:
+				mov ch, 0
+				jmp edit_color
+				
+			pink:
+				mov al, es:[bx+1]
+				cmp al, 00080
+				jne lblue
+				mov ch, 1
+				jmp edit_color
+				
+			lblue:
+				mov al, es:[bx+1]
+				cmp al, 00048
+				jne green
+				mov ch, 2
+				jmp edit_color
+			
+			green:
+				mov al, es:[bx+1]
+				cmp al, 00032
+				jne orange
+				mov ch, 3
+				jmp edit_color
+			
+			orange:
+				mov al, es:[bx+1]
+				cmp al, 00096
+				jne white
+				mov ch, 4
+				jmp edit_color
+			
+			white:
+				mov al, es:[bx+1]
+				cmp al, 00112
+				jne blue
+				mov ch, 5
+				jmp edit_color
+				
+			blue: ;00016
+				mov ch, 6
+				jmp edit_color
+			
+			pop ax
+			pop bx
+			
+			edit_color:
+				inc ch
+				cmp ch, 6
+				jg  reset_counter
+				
+				reset_counter:
+					mov ch, 0
+					
+				jmp func_editColor				
+				;ret
+
+		
+		jmp		LER_SETA
+		
+ESTEND:		
+		cmp 		al,48h
+		jne		BAIXO
+		;if (POSy <= 9){ break; }
+			cmp 	POSy, 8
+			jle 		CICLO
+		dec		POSy		;cima
+		sub bloco_pos, 160
+		jmp		CICLO
+
+BAIXO:		cmp		al,50h
+		jne		ESQUERDA
+		;if (POSy >= 14){ break; }
+			cmp 	POSy, 13
+			jge 		CICLO
+		inc 	POSy		;Baixo
+		add bloco_pos, 160
+		jmp		CICLO
+
+ESQUERDA:
+		cmp		al,4Bh
+		jne		DIREITA
+		;if (POSx <= 31){ break; }
+			cmp 	POSx, 30
+			jle 		CICLO
+		dec		POSx		;Esquerda
+		dec		POSx		;Esquerda
+		sub bloco_pos, 4
+		jmp		CICLO
+
+DIREITA:
+		cmp		al,4Dh
+		jne		LER_SETA 
+		;if (POSx >= 48){ break; }
+			cmp 	POSx, 46
+			jge 		CICLO
+		inc		POSx		;Direita
+		inc		POSx		;Direita
+		add bloco_pos, 4
+		jmp		CICLO
+		
+
+
+fim:
+
+		call func_colorsToBuffer
+		call func_makeFile
+		mov		ah,4CH
+		;INT		21H
+		ret
+		
+func_configuracaoCursor	endp
+
+;----------------------------------------(end) func_configuracaoCursor ----------------------------------------
+
+
 
 func_hasPlays proc
 	start:
@@ -1650,7 +1636,7 @@ escreve:
     	mov		ah, 40h				; indica que é para escrever
     	
 		lea		dx, buffer			; DX aponta para a infromação a escrever
-    	mov		cx, 107				; CX fica com o numero de bytes a escrever
+    	mov		cx, 132				; CX fica com o numero de bytes a escrever
 		int		21h					; Chama a rotina de escrita
 		jnc		close				; Se não existir erro na escrita fecha o ficheiro
 	
@@ -2042,7 +2028,6 @@ menu_switch_opt proc
 		int		21H
 		mov environment, 3		
 		call func_configurarGrelha
-		call func_selectOpt
 		
 	fim_menu_switch_opt:
 		call func_limpaEcran
@@ -2179,9 +2164,6 @@ menu_Ciclo:
 func_selectOpt endp
 
 func_drawMenu proc
-	
-	call func_limpaEcran
-
 	goto_xy 1,1
 	macro_puts str_opt1
 	goto_xy 2,1
