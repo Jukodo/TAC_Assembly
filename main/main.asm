@@ -41,7 +41,9 @@ dseg	segment para public 'data'
 	linha		db	0	; Define o número da linha que está a ser desenhada
 	nlinhas		db	0
 	tab_cor		db 	0
-	tab_car		db	' '	
+	tab_car		db	' '
+	str_timer	db	"Tempo: $"
+	str_pts		db	"Pts: $"
 	;|||||||||||||||||||| (end) Tabuleiro |||||||||||||||||||| 
 	
 	
@@ -60,6 +62,7 @@ dseg	segment para public 'data'
 	pontuacao		db 0
 	;
 	environment		db 0
+	play_env		db 0
 	;|||||||||||||||||||| (end) New Stuff |||||||||||||||||||| 
 	
 	
@@ -82,6 +85,9 @@ dseg	segment para public 'data'
 	str_pontuacoes 	db 	" Ver pontuacoes$"
 	str_grelha 		db 	" Configurar grelha$"
 	str_sair		db 	" Sair$"
+	
+	str_byRandom 		db 	" Gerar grelha aleatoria$"
+	str_byGrelha 		db 	" Carregar grelha configurada$"
 	
 	selected_opt	db	1 ;Inicialmente a opção 1 está selecionada
 	
@@ -272,75 +278,24 @@ func_editColor endp
 func_configuracaoCursor  proc
 	
 		xor cx, cx
+		xor bx, bx
 
-
-		;;PROG STARTS HERE
-		mov		ax, dseg
-		mov		ds,ax
-		;;||||||||||||||||
-		
-		mov		ax,0B800h
-		mov		es,ax
-		
-		goto_xy		POSx,POSy	; Vai para nova possição
-		mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
-		mov		bh,0		; numero da página
-		int		10h			
-		mov		Car, al	; Guarda o Caracter que está na posição do Cursor
-		mov		Cor, ah	; Guarda a cor que está na posição do Cursor	
-		
-		inc		POSx
-		goto_xy		POSx,POSy	; Vai para nova possição2
-		mov 		ah, 08h		; Guarda o Caracter que está na posição do Cursor
-		mov		bh,0		; numero da página
-		int		10h			
-		mov		Car2, al	; Guarda o Caracter que está na posição do Cursor
-		mov		Cor2, ah	; Guarda a cor que está na posição do Cursor	
-		dec		POSx
-	
-
-CICLO:		goto_xy	POSxa,POSya	; Vai para a posição anterior do cursor
+CICLO:	
+		goto_xy	POSxa,POSya	; Vai para a posição anterior do cursor
 		mov		ah, 02h
-		mov		dl, Car	; Repoe Caracter guardado 
+		mov		dl, tab_car	; Repoe Caracter guardado 
 		int		21H	
-
 		inc		POSxa
+		
 		goto_xy		POSxa,POSya	
 		mov		ah, 02h
-		mov		dl, Car2	; Repoe Caracter2 guardado 
+		mov		dl, tab_car	; Repoe Caracter2 guardado 
 		int		21H	
 		dec 		POSxa
 		
-		goto_xy	POSx,POSy	; Vai para nova possição
-		mov 		ah, 08h
-		mov		bh,0		; numero da página
-		int		10h		
-		mov		Car, al	; Guarda o Caracter que está na posição do Cursor
-		mov		Cor, ah	; Guarda a cor que está na posição do Cursor
-		
-		inc		POSx
-		goto_xy		POSx,POSy	; Vai para nova possição
-		mov 		ah, 08h
-		mov		bh,0		; numero da página
-		int		10h		
-		mov		Car2, al	; Guarda o Caracter2 que está na posição do Cursor2
-		mov		Cor2, ah	; Guarda a cor que está na posição do Cursor2
-		dec		POSx
-		
-		
-		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-		mov		ah, 02h		; IMPRIME caracter da posição no canto
-		mov		dl, Car	
-		int		21H			
-		
-		goto_xy		78,0		; Mostra o caractr2 que estava na posição do AVATAR
-		mov		ah, 02h		; IMPRIME caracter2 da posição no canto
-		mov		dl, Car2	
-		int		21H			
-		
-	
 		goto_xy		POSx,POSy	; Vai para posição do cursor
-IMPRIME:	mov		ah, 02h
+IMPRIME:	
+		mov		ah, 02h
 		mov		dl, '('	; Coloca AVATAR1
 		int		21H
 		
@@ -853,6 +808,11 @@ func_configurarGrelha proc
 		goto_xy 4,9
 		macro_puts str_grelha_7
 		
+		mov POSxa, 30
+		mov POSya, 8
+		mov POSx, 30
+		mov POSy, 8
+		mov bloco_pos, 1340
 		call func_configuracaoCursor
 		
 		jmp fim
@@ -864,8 +824,6 @@ func_configurarGrelha proc
 		mov cell, 1340
 		mov cell_counter, 0
 		mov line_counter, 0
-		call func_drawMenu
-		call func_selectOpt
 		ret
 		;call func_configurarGrelha
 		;mov ah,4CH
@@ -986,10 +944,16 @@ func_explodeByArray proc
 		mov byte ptr es:[bx+2], 0h
 		mov ah, es:[bx-1]
 		cmp ah, 1
-		je is_special
+		je is_white
+		cmp ah, 2
+		
+		je is_black
 		jmp next_column
-	is_special:
+	is_white:
 		mov dh, 2
+		jmp next_column
+	is_black:
+		dec dl
 	next_column:
 		cmp ch, max_colunas
 		je next_line
@@ -1012,7 +976,10 @@ func_explodeByArray proc
 func_explodeByArray endp
 
 func_atualizaTabela proc
+	xor ax, ax
+	xor bx, bx
 	xor cx, cx
+	xor dx, dx
 	mov cl, max_linhas
 	start:
 		mov bx, 2173 ;Posição da última célula
@@ -1044,14 +1011,20 @@ func_atualizaTabela proc
 				mov byte ptr es:[bx], dl
 				mov byte ptr es:[bx+2], dl
 				mov dl, es:[si-1]
-				mov byte ptr es:[bx-1], dl
-				mov byte ptr es:[bx+1], dl
-				mov byte ptr es:[si-1], ' '
-				mov byte ptr es:[si], 00000000b
-				mov byte ptr es:[si+1], ' '
-				mov byte ptr es:[si+2], 00000000b
-				call func_makeDelay
-				call func_makeDelay
+				cmp dl, 2
+				jg draw_emptyChar
+					mov byte ptr es:[bx-1], dl
+					mov byte ptr es:[bx+1], dl
+					jmp no_empty
+				draw_emptyChar:
+					mov byte ptr es:[bx-1], ' '
+					mov byte ptr es:[bx+1], ' '
+				no_empty:
+					mov byte ptr es:[si-1], ' '
+					mov byte ptr es:[si], 00000000b
+					mov byte ptr es:[si+1], ' '
+					mov byte ptr es:[si+2], 00000000b
+					call func_makeDelay
 			skip:
 		pop cx
 	next_column:
@@ -1067,10 +1040,9 @@ func_atualizaTabela proc
 	
 	mov ah, 08h		; Guarda o Caracter que está na posição do Cursor
 	mov		bh,0		; numero da página
-	int		10h			
+	int		10h
 	mov		Car, ah	; Guarda o Caracter que está na posição do Cursor
 	mov		Car2, ah	; Guarda a cor que está na posição do Cursor
-	
 	ret
 func_atualizaTabela endp
 
@@ -1121,7 +1093,6 @@ func_restartArray proc
 		dec cl
 		cmp cl, 0
 		jg ciclo
-	mov byte ptr es:[40], 'F'
 	ret
 func_restartArray endp
 
@@ -1153,6 +1124,7 @@ func_debugArray endp
 func_explode proc
 	cursor_at:
 	
+		COMMENT @
 		;Debug
 		mov dl, 0
 		mov dh, 0
@@ -1170,7 +1142,7 @@ func_explode proc
 		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
 		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
 		call	func_printNum		; imprime POSx
-		
+		@
 		
 		;mov ah, POSy
 		;mov al, POSx
@@ -1426,11 +1398,11 @@ func_explode proc
 		mov posCell_now, bx
 		jmp vertical
 	boom:
-		call func_debugArray
+		;call func_debugArray
 		call func_explodeByArray
 		
-		mov dl, 10
-		mov dh, 0
+		mov dl, 15
+		mov dh, 54
 		mov ax, 0
 		mov al, pontuacao
 		
@@ -1440,7 +1412,7 @@ func_explode proc
 		
 		call func_atualizaTabela
 		call func_restartArray
-		call func_debugArray
+		;call func_debugArray
 		call func_hasPlays
 	no_explode:
 		ret
@@ -1468,6 +1440,17 @@ func_limpaEcran	endp
 ; LE UMA TECLA	
 
 func_leTecla PROC
+		sem_tecla:
+			mov ah, environment
+			cmp ah, 1
+			jne skip
+				call func_drawTimer
+			skip:
+			mov ah, 0Bh
+			int 21h
+			cmp al, 0
+			je sem_tecla
+
 		mov		ah,08h
 		int		21h
 		mov		ah,0
@@ -1480,11 +1463,37 @@ SAI_TECLA:	RET
 func_leTecla	endp
 ;########################################################################
 
-func_moveCursor  proc
+func_moveCursor proc
 		call func_limpaEcran
+		mov environment, 1
+		cmp play_env, 0
+		je random
+			call func_drawTabuleiroByFile
+			jmp start
+		random:
+			call func_drawTabuleiro
+		start:
+		mov timer, 60
+		mov pontuacao, 0		
+		mov dl, 15
+		mov dh, 54
+		mov ax, 0
+		mov al, pontuacao
+		
+		push	dx		; Passagem de parâmetros a func_printNum (posição do ecran)
+		push	ax		; Passagem de parâmetros a func_printNum (número a imprimir)
+		call	func_printNum		; imprime POSx
 		;call func_readFile
-		call func_drawTabuleiro
 		call func_hasPlays
+		mov POSxa, 30
+		mov POSya, 8
+		mov POSx, 30
+		mov POSy, 8
+		
+		xor ax, ax
+		xor bx, bx
+		xor cx, cx
+		xor dx, dx
 		
 		goto_xy		POSx,POSy	; Vai para nova possição
 		mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
@@ -1504,11 +1513,6 @@ func_moveCursor  proc
 	
 
 CICLO:		
-		mov ah, environment
-		cmp ah, 1
-		jne skip
-			call func_drawTimer
-		skip:
 		goto_xy	POSxa,POSya	; Vai para a posição anterior do cursor
 		mov		ah, 02h
 		mov		dl, Car	; Repoe Caracter guardado 
@@ -1538,6 +1542,7 @@ CICLO:
 		dec		POSx
 		
 		
+		COMMENT @
 		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
 		mov		ah, 02h		; IMPRIME caracter da posição no canto
 		mov		dl, Car	
@@ -1547,7 +1552,7 @@ CICLO:
 		mov		ah, 02h		; IMPRIME caracter2 da posição no canto
 		mov		dl, Car2	
 		int		21H			
-		
+		@
 	
 		goto_xy		POSx,POSy	; Vai para posição do cursor
 IMPRIME:	mov		ah, 02h
@@ -1620,10 +1625,10 @@ explode:
 	call func_explode
 	jmp CICLO
 fim:
+
+		call func_colorsToBuffer
+		call func_makeFile
 		;call func_makeFile
-		call func_limpaEcran
-		call func_drawMenu
-		mov timer, 60
 		mov environment, 0
 		ret
 func_moveCursor	endp
@@ -1736,6 +1741,225 @@ func_readFile  proc
 		ret
 func_readFile	endp
 ;|||||||||||||||||||| (end) LerFich |||||||||||||||||||| 
+
+
+;|||||||||||||||||||| (start) func_drawTabuleiroByFile |||||||||||||||||||| 
+func_drawTabuleiroByFile proc
+
+	xor ax, ax
+	xor bx, bx
+	xor cx, cx
+	xor dx, dx
+	
+	;call func_limpaEcran
+	;goto_xy 0, 5
+	
+	open_file:
+        mov     ah,3dh			; abrir o ficheiro em modo leitura 
+        mov     al,0			; tipo de ficheiro	
+        lea     dx,fname_ler	; nome do ficheiro
+        int     21h				; abre para leitura 
+        jc      erro_abrir		; pode aconter erro a abrir o ficheiro 
+        mov     fhandle,ax		; ax devolve o Handle para o ficheiro 
+        jmp     ler_ciclo		; depois de abero vamos ler o ficheiro
+
+	erro_abrir:
+        mov     ah,09h
+        lea     dx,msgErrorOpen
+        int     21h
+        jmp     fim
+
+	ler_ciclo:
+        mov     ah,3fh			; indica que vai ser lido um ficheiro 
+        mov     bx,fhandle		; bx deve conter o Handle do ficheiro previamente aberto 
+        mov     cx,1			; numero de bytes a ler 
+        lea     dx,car_fich		; vai ler para o local de memoria apontado por dx (car_fich)
+        int     21h				; faz efectivamente a leitura
+		jc	    erro_ler		; se carry é porque aconteceu um erro
+		cmp	    ax,0			;EOF?	verifica se já estamos no fim do ficheiro 
+		je	    close_file		; se EOF fecha o ficheiro
+		
+		push ax
+		push bx
+		push cx
+		push dx
+		
+			convert_color:
+			
+				xor ax, ax
+				xor bx, bx
+				xor cx, cx
+				xor dx, dx
+				
+				mov bx, cell
+				mov ch, cell_counter
+				mov cl, line_counter
+				
+				cycle:
+				
+					mov al, car_fich
+
+					cmp al, '2'  ; AL é red?
+					jne pink
+				
+					red:
+						mov ah, 00064
+						jmp write_to_memory
+						
+					pink:
+						cmp al, '3' 
+						jne lblue
+						mov ah, 00080
+						jmp write_to_memory
+						
+					lblue:
+						cmp al, '4' 
+						jne green
+						mov ah, 00048
+						jmp write_to_memory
+					
+					green:
+						cmp al, '5' 
+						jne orange
+						mov ah, 00032
+						jmp write_to_memory
+					
+					orange:
+						cmp al, '6' 
+						jne white
+						mov ah, 00096
+						jmp write_to_memory
+					
+					white:
+						cmp al, '7' 
+						jne blue
+						mov ah, 00112
+						jmp write_to_memory
+						
+					blue:
+						cmp al, '8' 
+						jne next_cell
+						mov ah, 00016
+						jmp write_to_memory
+						
+					;space:
+						;cmp al, 32
+						;jne cr
+						;jmp next_cell
+						
+					;cr:
+						;cmp al, 13
+						;jne next_cell
+						;cmp al, 10
+						;jne next_cell
+						;jmp next_line
+						
+					write_to_memory:
+					
+						;mov dh, 32
+						;mov es:[bx], dh
+						push ax
+						
+						call func_getRandom
+						pop	ax
+						and al,00110110b
+						cmp	al, 00110110b
+						jne check_black
+						mov dh, 1
+						
+						check_black:
+						call func_getRandom
+						pop	ax
+						and al,00110111b
+						cmp	al, 00110111b
+						jne draw
+						mov dh, 2
+						and ah, 01110000b ; ignorar a cor de texto, escreve apenas a cor de background
+						
+						draw:
+						pop ax
+						
+						mov es:[bx], dh
+						mov es:[bx+2], dh
+						mov es:[bx+1], ah
+						mov es:[bx+3], ah
+						
+						jmp next_cell
+					
+					next_cell:
+						mov bx, cell
+						add bx, 2
+						;add bx, 1 ;Anda para a celula da direita
+						inc ch; Nº de células percorridas
+						cmp ch, 18
+						je next_line; Se já leu o tamanho máximo de celulas que pode ler muda de linha
+						jmp continue; Continua a ler do ficheiro e vai ler a próxima celula
+					
+					next_line:
+			
+						;mov	byte ptr es:[bx+1],ch
+						mov bx, cell
+						inc cl; Nº de linhas percorridas
+						cmp cl, 7
+						jge close_file; Se já leu o tamanho máximo de linhas que pode ler, termina
+						;add bx, 8
+						add bx, 160; Muda de linha, mas fica na ultima coluna
+						sub bx, 34	; Vai para a 1ª coluna da nova linha
+						mov ch, 0; Renicia a contagem das células pois estamos numa nova linha
+						jmp continue; Continua a ler do ficheiro e vai ler a próxima célula (1ª celula da linha nova)
+				
+			
+		continue:	
+		
+			mov cell, bx
+			mov cell_counter, ch
+			mov line_counter, cl
+			pop dx		
+			pop cx
+			pop bx
+			pop ax
+			;mov     ah,02h			; coloca o caracter no ecran
+			;mov	    dl,car_fich		; este é o caracter a enviar para o ecran
+			;int	    21h				; imprime no ecran
+			jmp	    ler_ciclo		; continua a ler o ficheiro
+		
+	erro_ler:
+        mov     ah,09h
+        lea     dx,msgErrorRead
+        int     21h
+		
+	close_file:
+		mov     ah,3eh
+		mov     bx,fhandle
+		int     21h
+		jnc     fim
+
+		mov     ah,09h			; o ficheiro pode não fechar correctamente
+		lea     dx,msgErrorClose
+		Int     21h
+		
+	fim:
+		xor ax, ax
+		xor bx, bx
+		xor cx, cx
+		xor dx, dx
+		
+		goto_xy  20,15
+		macro_puts str_timer
+		
+		goto_xy  49,15
+		macro_puts str_pts
+		
+		mov cell, 1340
+		mov cell_counter, 0
+		mov line_counter, 0
+		ret
+
+func_drawTabuleiroByFile endp
+
+;|||||||||||||||||||| (end) func_drawTabuleiroByFile |||||||||||||||||||| 
+
+
 ;|||||||||||||||||||| (start) Tabuleiro |||||||||||||||||||| 
 func_drawTabuleiro PROC
 	;MOV	AX, DADOS
@@ -1747,8 +1971,6 @@ func_drawTabuleiro PROC
 
 	mov	cx,10		; Faz o ciclo 10 vezes
 ciclo4:
-		mov   	ax, 0b800h	; Segmento de memória de vídeo onde vai ser desenhado o tabuleiro
-		mov   	es, ax	
 		mov	linha, 	8	; O Tabuleiro vai começar a ser desenhado na linha 8 
 		mov	nlinhas, 6	; O Tabuleiro vai ter 6 linhas
 		
@@ -1767,10 +1989,19 @@ novatab_cor:
 		mov 	dh,	tab_car	; vai imprimir o tab_caracter "SAPCE"
 		call func_getRandom
 		pop	ax
-		and al,01010101b
-		cmp	al, 01010101b
-		jne get_color
+		and al,00110110b
+		cmp	al, 00110110b
+		jne check_black
 		mov dh, 1
+		
+		check_black:
+		call func_getRandom
+		pop	ax
+		and al,00110111b
+		cmp	al, 00110111b
+		jne get_color
+		mov dh, 2
+		
 		
 		get_color:
 		call	func_getRandom	; Calcula próximo aleatório que é colocado na pinha 
@@ -1789,7 +2020,6 @@ novatab_cor:
 		inc	bx
 		inc	bx
 		
-		mov	di,1 ;func_makeDelay de 1 centesimo de segundo
 		;;call	func_makeDelay
 		loop	ciclo1		; continua até fazer as 9 colunas que tab_correspondem a uma liha completa
 		
@@ -1799,6 +2029,12 @@ novatab_cor:
 		cmp	al, 0		; verifica se já desenhou todas as linhas 
 		jne	ciclo2		; se ainda há linhas a desenhar continua 
 return_PROC:
+
+		goto_xy  20,15
+		macro_puts str_timer
+		
+		goto_xy  49,15
+		macro_puts str_pts
 	;call func_hasPlays
 	;pop dx
 	;cmp dl, 0
@@ -1905,10 +2141,16 @@ func_printNum endp
 func_makeDelay proc
 	pushf
 	push	ax
+	push	bx
 	push	cx
 	push	dx
 	push	si
+	xor ax, ax
+	xor bx, bx
+	xor cx, cx
+	xor dx, dx
 	
+	mov	di,1 ;func_makeDelay de 1 centesimo de segundo
 	mov	ah,2Ch
 	int	21h
 	mov	al,100
@@ -1936,6 +2178,7 @@ naoajusta:
 	pop	si
 	pop	dx
 	pop	cx
+	pop bx
 	pop	ax
 	popf
 	ret
@@ -1987,9 +2230,9 @@ func_drawTimer PROC
 		;MOV 	STR12[3],'$'
 		;GOTO_XY	20,10
 		;macro_puts	STR12 
-		MOV byte ptr es:[40], al
-		MOV byte ptr es:[42], ah
-		MOV byte ptr es:[44], 's'
+		MOV byte ptr es:[2454], al
+		MOV byte ptr es:[2456], ah
+		MOV byte ptr es:[2458], 's'
 
 				
         
@@ -2009,50 +2252,28 @@ fim_horas:
 			
 func_drawTimer ENDP
 
-menu_switch_opt proc
+func_playMenuSwitch proc
 
-	mov al, selected_opt
-	cmp al, 1
-	jne opt2
-	
-	opt1:
-		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-		mov		ah, 02h		; IMPRIME caracter da posição no canto
-		mov		dl, '1'
-		int		21H	
-		mov environment, 1
-		call func_moveCursor
-		call func_selectOpt
-	
-	opt2:
-		cmp al, 2
-		jne opt3
-		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-		mov		ah, 02h		; IMPRIME caracter da posição no canto
-		mov		dl, '2'
-		int		21H
-		call func_selectOpt
-	
-	opt3:
-		cmp al, 3
-		jne fim_menu_switch_opt
-		goto_xy		77,0		; Mostra o caractr que estava na posição do AVATAR
-		mov		ah, 02h		; IMPRIME caracter da posição no canto
-		mov		dl, '3'
-		int		21H
-		mov environment, 3		
-		call func_configurarGrelha
-		call func_selectOpt
+		mov al, selected_opt
+		cmp al, 1
+		jne opt2
 		
-	fim_menu_switch_opt:
-		call func_limpaEcran
-		mov ah,4CH
-		int	21H
+		opt1:
+			mov play_env, 0
+			call func_moveCursor
+			ret
+		
+		opt2:
+			mov play_env, 1
+			call func_moveCursor
+			ret
+			;call func_selectOpt
 
-menu_switch_opt endp
+func_playMenuSwitch endp
 
 func_selectOpt proc
-
+		call func_limpaEcran
+		call func_drawMenu
 	;goto_xy		menu_POSx,menu_POSy	; Vai para nova possição
 	;mov 		ah, 08h	; Guarda o Caracter que está na posição do Cursor
 	;mov			bh,0		; numero da página
@@ -2147,7 +2368,7 @@ menu_Ciclo:
 			;cmp 		al, 27	; ESCAPE
 			;je		fim_selectedOpt
 			cmp 	al, 13	; ENTER
-			je		menu_switch_opt
+			je		func_menuSwitch
 			jmp		menu_LerSeta
 			
 	menu_Estend:		
@@ -2163,9 +2384,11 @@ menu_Ciclo:
 	menu_Baixo:		
 			cmp		al,50h
 			jne		menu_LerSeta
+	
 			;if (menu_POSy >= 4){ break; }
 			cmp 	menu_POSy, 4
 			jge 	menu_Ciclo
+			
 			inc selected_opt
 			inc 	menu_POSy		;Baixo
 			jmp		menu_Ciclo
@@ -2177,6 +2400,159 @@ menu_Ciclo:
 		;int	21H
 
 func_selectOpt endp
+
+func_selectPlayOpt proc
+
+		call func_limpaEcran
+		call func_drawPlayMenu
+		
+menu_Ciclo:		
+
+	dec menu_POSxa
+	goto_xy	menu_POSxa,menu_POSya	; Vai para a posição anterior do cursor
+	mov		ah, 02h
+	mov		dl, menu_Car	; Repoe menu_Caracter guardado 
+	int		21H	
+	inc menu_POSxa
+
+	inc		menu_POSxa
+	goto_xy		menu_POSxa,menu_POSya	
+	mov		ah, 02h
+	mov		dl, menu_Car2	; Repoe menu_Caracter2 guardado 
+	int		21H	
+	dec 		menu_POSxa
+	
+	goto_xy	menu_POSx,menu_POSy	; Vai para nova possição
+	mov 		ah, 08h
+	mov		bh,0		; numero da página
+	mov		menu_Car, al	; Guarda o Caracter que está na posição do Cursor
+	mov		Cor, ah	; Guarda a cor que está na posição do Cursor		
+	
+	inc		menu_POSx
+	goto_xy		menu_POSx,menu_POSy	; Vai para nova possição
+	mov 		ah, 08h
+	mov		bh,0		; numero da página
+	mov		menu_Car2, al	; Guarda o Caracter2 que está na posição do Cursor2
+	mov		Cor2, ah	; Guarda a cor que está na posição do Cursor2		
+	dec		menu_POSx
+	
+
+	goto_xy		menu_POSx,menu_POSy	; Vai para posição do cursor
+	
+	menu_imprime:
+			
+			dec menu_POSx
+			goto_xy		menu_POSx,menu_POSy
+			mov		ah, 02h
+			mov		dl, '('	; Coloca AVATAR1
+			int		21H
+			inc menu_POSx
+	
+			inc		menu_POSx
+			goto_xy		menu_POSx,menu_POSy		
+			mov		ah, 02h
+			mov		dl, ')'	; Coloca AVATAR2
+			int		21H	
+			dec		menu_POSx
+			
+			goto_xy		menu_POSx,menu_POSy	; Vai para posição do cursor
+			
+			mov		al, menu_POSx	; Guarda a posição do cursor
+			mov		menu_POSxa, al
+			mov		al, menu_POSy	; Guarda a posição do cursor
+			mov 		menu_POSya, al
+			
+	menu_LerSeta:	
+			call 		func_leTecla
+			cmp		ah, 1
+			je		menu_Estend
+			cmp 		al, 27	; ESCAPE
+			je		fim
+			cmp 	al, 13	; ENTER
+			je		func_playMenuSwitch
+			jmp		menu_LerSeta
+			
+	menu_Estend:		
+			cmp 		al,48h
+			jne		menu_Baixo
+			;if (menu_POSy <= 1){ break; }
+			cmp 	menu_POSy, 1
+			jle 	menu_Ciclo
+			dec selected_opt
+			dec		menu_POSy		;cima
+			jmp		menu_Ciclo
+
+	menu_Baixo:		
+			cmp		al,50h
+			jne		menu_LerSeta
+
+			;if (menu_POSy >= 2){ break; }
+			cmp 	menu_POSy, 2
+			jge 	menu_Ciclo
+
+			inc selected_opt
+			inc 	menu_POSy		;Baixo
+			jmp		menu_Ciclo
+
+			
+	fim:
+		ret
+func_selectPlayOpt endp
+
+
+func_drawPlayMenu proc
+
+	call func_limpaEcran
+
+	goto_xy 1,1
+	macro_puts str_opt1
+	macro_puts str_byRandom
+	
+	goto_xy 1,2
+	macro_puts str_opt2
+	macro_puts str_byGrelha
+
+	fim:
+		ret
+
+func_drawPlayMenu endp
+
+func_menuSwitch proc
+
+	mov al, selected_opt
+	cmp al, 1
+	jne opt2
+	
+	opt1:
+		;mov environment, 1
+		;call func_moveCursor
+		call func_drawPlayMenu
+		call func_selectPlayOpt
+		mov selected_opt, 1
+		mov menu_POSy, 1
+		mov menu_POSx, 1
+		call func_selectOpt
+	
+	opt2:
+		cmp al, 2
+		jne opt3
+		call func_selectOpt
+	
+	opt3:
+		cmp al, 3
+		jne fim
+		mov environment, 3		
+		call func_configurarGrelha
+		call func_selectOpt
+		
+	fim:
+		call func_limpaEcran
+		mov ah,4CH
+		int	21H
+
+func_menuSwitch endp
+
+
 
 func_drawMenu proc
 	
